@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  HR
+  ADMIN
+}
+
+enum CardType {
+  BLUE_PLUS_30
+  GREEN_PLUS_10
+  YELLOW_MINUS_10
+  RED_MINUS_30
+}
+
+enum AttendanceStatus {
+  CLOCKED_IN
+  CLOCKED_OUT
+}
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  password      String
+  name          String
+  role          Role              @default(EMPLOYEE)
+  netCardPoints Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  attendances   Attendance[]
+  receivedCards PerformanceCard[] @relation("ReceivedCards")
+  issuedCards   PerformanceCard[] @relation("IssuedCards")
+}
+
+model Attendance {
+  id           String           @id @default(uuid())
+  employeeId   String
+  clockInTime  DateTime         @default(now())
+  clockOutTime DateTime?
+  intendedTask String
+  status       AttendanceStatus @default(CLOCKED_IN)
+
+  employee     User             @relation(fields: [employeeId], references: [id])
+}
+
+model PerformanceCard {
+  id         String   @id @default(uuid())
+  employeeId String
+  issuerId   String
+  cardType   CardType
+  reason     String
+  issuedAt   DateTime @default(now())
+
+  employee   User     @relation("ReceivedCards", fields: [employeeId], references: [id])
+  issuer     User     @relation("IssuedCards", fields: [issuerId], references: [id])
+}
