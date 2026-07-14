@@ -2,7 +2,11 @@
   "name": "@hrms/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "heroku-postbuild": "npx prisma generate --schema=apps/api/prisma/schema.prisma && npx nx build api",
+    "build": "npx prisma generate --schema=apps/api/prisma/schema.prisma && npx nx build api",
+    "start": "node dist/apps/api/main.js"
+  },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} apps/api/prisma/seed.ts"
   },
