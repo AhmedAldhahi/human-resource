@@ -18,6 +18,30 @@ export enum AttendanceStatus {
   CLOCKED_OUT = 'CLOCKED_OUT',
 }
 
+export enum EmployeeType {
+  FIXED = 'FIXED',
+  PER_HOUR = 'PER_HOUR',
+}
+
+export enum WorkLocation {
+  OFFICE = 'OFFICE',
+  HOME = 'HOME',
+}
+
+export enum AbsenceType {
+  SICK_LEAVE = 'SICK_LEAVE',
+  REGULAR = 'REGULAR',
+  VACATION = 'VACATION',
+  HOURLY_OFF = 'HOURLY_OFF',
+  EARLY_LEAVE = 'EARLY_LEAVE',
+}
+
+export enum AbsenceStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 // ─── Card Point Values ──────────────────────────────────────────────────────
 
 export const CARD_POINT_VALUES: Record<CardType, number> = {
@@ -46,6 +70,12 @@ export interface CreateUserDto {
   password: string;
   name: string;
   role: Role;
+  employeeType?: EmployeeType;
+  monthlySalary?: number;
+  hourlyWage?: number;
+  phone?: string;
+  department?: string;
+  bio?: string;
 }
 
 export interface UserResponseDto {
@@ -53,14 +83,45 @@ export interface UserResponseDto {
   email: string;
   name: string;
   role: Role;
+  employeeType: EmployeeType;
+  monthlySalary: number;
+  photoUrl: string | null;
+  absenceDaysLeft: number;
+  sickDaysLeft: number;
+  vacationDaysLeft: number;
+  earlyLeaveMinutesAccumulated: number;
   netCardPoints: number;
+  hourlyWage: number;
+  phone?: string | null;
+  department?: string | null;
+  bio?: string | null;
   createdAt: string;
+}
+
+export interface UpdateProfileDto {
+  name?: string;
+  phone?: string;
+  department?: string;
+  bio?: string;
+}
+
+export interface UpdateWageDto {
+  hourlyWage?: number;
+  role?: Role;
+  department?: string;
+}
+
+export interface UpdateEmployeeTypeDto {
+  employeeType: EmployeeType;
+  monthlySalary?: number;
+  hourlyWage?: number;
 }
 
 // ─── Attendance DTOs ────────────────────────────────────────────────────────
 
 export interface ClockInDto {
   intendedTask: string;
+  workLocation?: WorkLocation;
 }
 
 export interface AttendanceResponseDto {
@@ -70,6 +131,19 @@ export interface AttendanceResponseDto {
   clockOutTime: string | null;
   intendedTask: string;
   status: AttendanceStatus;
+  workLocation: WorkLocation;
+  latePenalty: boolean;
+  penaltyMinutes: number;
+}
+
+export interface UpdateAttendanceDto {
+  clockInTime?: string;
+  clockOutTime?: string | null;
+  intendedTask?: string;
+  status?: AttendanceStatus;
+  workLocation?: WorkLocation;
+  latePenalty?: boolean;
+  penaltyMinutes?: number;
 }
 
 // ─── Performance Card DTOs ──────────────────────────────────────────────────
@@ -90,3 +164,69 @@ export interface CardResponseDto {
   employeeName?: string;
   issuerName?: string;
 }
+
+// ─── Absence DTOs ───────────────────────────────────────────────────────────
+
+export interface CreateAbsenceDto {
+  date: string; // YYYY-MM-DD
+  type: AbsenceType;
+  reason?: string;
+  earlyLeaveMinutes?: number;
+}
+
+export interface AbsenceRecordResponseDto {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  date: string;
+  type: AbsenceType;
+  status: AbsenceStatus;
+  reason?: string | null;
+  documentUrl?: string | null;
+  earlyLeaveMinutes?: number | null;
+  isPaid: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateAbsenceStatusDto {
+  status: AbsenceStatus;
+}
+
+// ─── Reports DTOs ───────────────────────────────────────────────────────────
+
+export interface OverviewReportDto {
+  totalEmployees: number;
+  fixedIncomeCount: number;
+  perHourCount: number;
+  todayClockedIn: number;
+  todayOfficeCount: number;
+  todayHomeCount: number;
+  todayLateCount: number;
+  totalAbsencesThisMonth: number;
+}
+
+export interface AttendanceReportDto {
+  date: string;
+  totalClockIns: number;
+  officeCount: number;
+  homeCount: number;
+  lateCount: number;
+}
+
+export interface PayrollItemDto {
+  userId: string;
+  name: string;
+  email: string;
+  department?: string | null;
+  employeeType: EmployeeType;
+  monthlySalary: number;
+  hourlyWage: number;
+  totalHoursWorked: number;
+  penaltyMinutesTotal: number;
+  unpaidAbsenceDays: number;
+  netCardPoints: number;
+  calculatedCompensation: number;
+}
+

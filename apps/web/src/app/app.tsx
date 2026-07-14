@@ -6,11 +6,14 @@ import DashboardLayout from '../components/DashboardLayout';
 import LoginPage from '../pages/LoginPage';
 import DashboardHome from '../pages/DashboardHome';
 import AttendancePage from '../pages/AttendancePage';
+import ProfilePage from '../pages/ProfilePage';
 import EmployeesPage from '../pages/EmployeesPage';
 import MyCardsPage from '../pages/MyCardsPage';
 import CreateUserPage from '../pages/CreateUserPage';
 import AllCardsPage from '../pages/AllCardsPage';
 import IssueCardPage from '../pages/IssueCardPage';
+import AbsencePage from '../pages/AbsencePage';
+import ReportsPage from '../pages/ReportsPage';
 import { Role } from '@hrms/shared';
 
 export function App() {
@@ -31,7 +34,9 @@ export function App() {
             }
           >
             <Route index element={<DashboardHome />} />
+            <Route path="profile" element={<ProfilePage />} />
             <Route path="attendance" element={<AttendancePage />} />
+            <Route path="absence" element={<AbsencePage />} />
             <Route path="my-cards" element={<MyCardsPage />} />
 
             {/* HR & ADMIN only */}
@@ -40,6 +45,14 @@ export function App() {
               element={
                 <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
                   <EmployeesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="reports"
+              element={
+                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                  <ReportsPage />
                 </ProtectedRoute>
               }
             />
@@ -75,3 +88,4 @@ export function App() {
 }
 
 export default App;
+
