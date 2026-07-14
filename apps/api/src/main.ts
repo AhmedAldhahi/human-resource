@@ -17,6 +17,13 @@ async function bootstrap() {
     }),
   );
 
+  app.use((req: any, res: any, next: any) => {
+    if (req.url && !req.url.startsWith('/api/') && req.url !== '/api') {
+      req.url = `/api${req.url}`;
+    }
+    next();
+  });
+
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 3000;
