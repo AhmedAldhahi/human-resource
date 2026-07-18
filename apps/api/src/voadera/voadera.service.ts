@@ -19,7 +19,8 @@ export class VoaderaService {
       const response = await axios.post(`${this.apiUrl}/auth/login`, {
         password: this.adminPassword,
       });
-      this.accessToken = response.data.access_token;
+      // The Voadera API returns { token: '...' } not access_token
+      this.accessToken = response.data.token || response.data.access_token;
       return this.accessToken as string;
     } catch (error) {
       console.error('Voadera API authentication failed:', error);
@@ -50,9 +51,16 @@ export class VoaderaService {
         return this.request<T>(method, endpoint, 1);
       }
       console.error(`Voadera API request failed (${endpoint}):`, error.response?.data || error.message);
+      
+      let status = error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
+      // Do not return 401, as it will cause the HRMS frontend to log the user out
+      if (status === 401) {
+        status = HttpStatus.BAD_GATEWAY;
+      }
+      
       throw new HttpException(
         error.response?.data?.message || 'Voadera API request failed',
-        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        status,
       );
     }
   }
