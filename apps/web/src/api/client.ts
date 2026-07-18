@@ -8,6 +8,7 @@ import type {
   UpdateWageDto,
   UpdateEmployeeTypeDto,
   ClockInDto,
+  ClockOutDto,
   AttendanceResponseDto,
   UpdateAttendanceDto,
   IssueCardDto,
@@ -18,6 +19,12 @@ import type {
   OverviewReportDto,
   AttendanceReportDto,
   PayrollItemDto,
+  OnlineStatusRecordDto,
+  PresenceStatsDto,
+  UpdateCustomStatusDto,
+  VoaderaEmployeeDto,
+  VoaderaSessionDto,
+  VoaderaDailyReportDto,
 } from '@hrms/shared';
 
 const getBaseUrl = () => {
@@ -77,8 +84,9 @@ export const usersApi = {
     return data;
   },
 
-  getAll: async (): Promise<UserResponseDto[]> => {
-    const { data } = await apiClient.get<UserResponseDto[]>('/users');
+  getAll: async (includeInactive?: boolean): Promise<UserResponseDto[]> => {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    const { data } = await apiClient.get<UserResponseDto[]>(`/users${query}`);
     return data;
   },
 
@@ -94,6 +102,11 @@ export const usersApi = {
 
   updateWage: async (id: string, dto: UpdateWageDto): Promise<UserResponseDto> => {
     const { data } = await apiClient.patch<UserResponseDto>(`/users/${id}/wage`, dto);
+    return data;
+  },
+
+  updateStatus: async (id: string, isActive: boolean): Promise<UserResponseDto> => {
+    const { data } = await apiClient.patch<UserResponseDto>(`/users/${id}/status`, { isActive });
     return data;
   },
 
@@ -127,9 +140,10 @@ export const attendanceApi = {
     return data;
   },
 
-  clockOut: async (): Promise<AttendanceResponseDto> => {
+  clockOut: async (dto?: ClockOutDto): Promise<AttendanceResponseDto> => {
     const { data } = await apiClient.patch<AttendanceResponseDto>(
-      '/attendance/clock-out'
+      '/attendance/clock-out',
+      dto || {}
     );
     return data;
   },
@@ -240,5 +254,47 @@ export const reportsApi = {
   },
 };
 
-export default apiClient;
+// ── Presence & Team Radar ───────────────────────────────────────────────────
+export const presenceApi = {
+  getLive: async (): Promise<OnlineStatusRecordDto[]> => {
+    const { data } = await apiClient.get<OnlineStatusRecordDto[]>('/presence/live');
+    return data;
+  },
 
+  getStats: async (): Promise<PresenceStatsDto> => {
+    const { data } = await apiClient.get<PresenceStatsDto>('/presence/stats');
+    return data;
+  },
+
+  updateCustomStatus: async (dto: UpdateCustomStatusDto): Promise<OnlineStatusRecordDto[]> => {
+    const { data } = await apiClient.patch<OnlineStatusRecordDto[]>('/presence/custom-status', dto);
+    return data;
+  },
+};
+
+// ── Voadera ───────────────────────────────────────────────────────────────────
+export const voaderaApi = {
+  getEmployees: async (start?: string, end?: string): Promise<VoaderaEmployeeDto[]> => {
+    let url = '/voadera/employees?';
+    if (start) url += `start=${start}&`;
+    if (end) url += `end=${end}`;
+    const { data } = await apiClient.get<VoaderaEmployeeDto[]>(url);
+    return data;
+  },
+  getSessions: async (voaderaId: string, start?: string, end?: string): Promise<VoaderaSessionDto[]> => {
+    let url = `/voadera/employees/${voaderaId}/sessions?`;
+    if (start) url += `start=${start}&`;
+    if (end) url += `end=${end}`;
+    const { data } = await apiClient.get<VoaderaSessionDto[]>(url);
+    return data;
+  },
+  getDailyReport: async (voaderaId: string, start?: string, end?: string): Promise<VoaderaDailyReportDto[]> => {
+    let url = `/voadera/employees/${voaderaId}/daily-report?`;
+    if (start) url += `start=${start}&`;
+    if (end) url += `end=${end}`;
+    const { data } = await apiClient.get<VoaderaDailyReportDto[]>(url);
+    return data;
+  },
+};
+
+export default apiClient;

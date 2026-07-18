@@ -27,6 +27,7 @@ export default function EmployeeWageModal({
   const [hourlyWage, setHourlyWage] = useState<number>(0);
   const [role, setRole] = useState<Role>(Role.EMPLOYEE);
   const [department, setDepartment] = useState<string>('');
+  const [tsUsername, setTsUsername] = useState<string>('');
 
   // Photo & Absence states
   const [photoFile, setPhotoFile] = useState<File | undefined>();
@@ -45,6 +46,7 @@ export default function EmployeeWageModal({
       setHourlyWage(data.hourlyWage ?? 0);
       setRole(data.role);
       setDepartment(data.department || '');
+      setTsUsername(data.tsUsername || '');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load employee details.');
     } finally {
@@ -88,6 +90,7 @@ export default function EmployeeWageModal({
           monthlySalary: Number(monthlySalary),
           hourlyWage: Number(hourlyWage),
         }),
+        usersApi.updateProfile(employeeId, { tsUsername }),
       ]);
 
       setSuccessMsg('Employee type, salary/wage rate, and designation updated successfully.');
@@ -379,9 +382,21 @@ export default function EmployeeWageModal({
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   placeholder="e.g. Engineering, Sales, HR"
-                  className="input-field py-2.5 text-sm bg-slate-900 border-white/10 font-medium"
+                  className="input-field py-2.5 text-sm bg-slate-900 border-white/10 font-medium w-full"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">Org unit assigned to this employee.</p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-300 block mb-1.5">Windows Username (Tracker)</label>
+                <input
+                  type="text"
+                  value={tsUsername}
+                  onChange={(e) => setTsUsername(e.target.value)}
+                  placeholder="e.g. jdoe, Administrator"
+                  className="input-field py-2.5 text-sm bg-slate-900 border-white/10 font-medium w-full"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Used to link Voadera Tracker hours.</p>
               </div>
             </div>
 

@@ -14,28 +14,42 @@ export class CardsService {
     issuerId: string,
     dto: IssueCardDto,
   ): Promise<CardResponseDto> {
-    const pointValue = CARD_POINT_VALUES[dto.cardType];
+    const card = await this.prisma.performanceCard.create({
+      data: {
+        employeeId: dto.employeeId,
+        issuerId,
+        cardType: dto.cardType,
+        reason: dto.reason,
+      },
+      include: {
+        employee: { select: { name: true } },
+        issuer: { select: { name: true } },
+      },
+    });
 
-    const [card] = await this.prisma.$transaction([
-      this.prisma.performanceCard.create({
-        data: {
-          employeeId: dto.employeeId,
-          issuerId,
-          cardType: dto.cardType,
-          reason: dto.reason,
-        },
-        include: {
-          employee: { select: { name: true } },
-          issuer: { select: { name: true } },
-        },
-      }),
-      this.prisma.user.update({
-        where: { id: dto.employeeId },
-        data: {
-          netCardPoints: { increment: pointValue },
-        },
-      }),
-    ]);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const monthCards = await this.prisma.performanceCard.findMany({
+      where: {
+        employeeId: dto.employeeId,
+        issuedAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      select: { cardType: true },
+    });
+
+    const currentMonthNet = monthCards.reduce(
+      (sum, c) => sum + (CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0),
+      0,
+    );
+
+    await this.prisma.user.update({
+      where: { id: dto.employeeId },
+      data: {
+        netCardPoints: currentMonthNet,
+      },
+    });
 
     return {
       id: card.id,

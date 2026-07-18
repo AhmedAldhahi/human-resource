@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import type { UserResponseDto } from '@hrms/shared';
-import { Role, EmployeeType } from '@hrms/shared';
-import { usersApi } from '../api/client';
+import type { UserResponseDto, OnlineStatusRecordDto } from '@hrms/shared';
+import { Role, EmployeeType, PresenceStatus } from '@hrms/shared';
+import { usersApi, presenceApi } from '../api/client';
 import IssueCardModal from '../components/IssueCardModal';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import EmployeeWageModal from '../components/EmployeeWageModal';
@@ -20,8 +20,11 @@ function roleBadgeClasses(role: Role): string {
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<UserResponseDto[]>([]);
+  const [presenceMap, setPresenceMap] = useState<Record<string, OnlineStatusRecordDto>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const [showInactive, setShowInactive] = useState(false);
 
   // Issue card modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -47,8 +50,16 @@ export default function EmployeesPage() {
 
   const fetchEmployees = async () => {
     try {
-      const data = await usersApi.getAll();
+      const [data, liveData] = await Promise.all([
+        usersApi.getAll(showInactive),
+        presenceApi.getLive(),
+      ]);
       setEmployees(data);
+      const map: Record<string, OnlineStatusRecordDto> = {};
+      liveData.forEach((r) => {
+        map[r.userId] = r;
+      });
+      setPresenceMap(map);
     } catch {
       // ignore
     } finally {
@@ -58,7 +69,18 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [showInactive]);
+
+  const handleToggleStatus = async (emp: UserResponseDto) => {
+    if (confirm(`Are you sure you want to ${emp.isActive ? 'deactivate' : 'reactivate'} ${emp.name}?`)) {
+      try {
+        await usersApi.updateStatus(emp.id, !emp.isActive);
+        fetchEmployees();
+      } catch (e) {
+        alert('Failed to update status');
+      }
+    }
+  };
 
   const filtered = employees.filter(
     (e) =>
@@ -94,9 +116,19 @@ export default function EmployeesPage() {
           </p>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-80">
-          <svg
+        {/* Actions & Search */}
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500"
+            />
+            Show Inactive
+          </label>
+          <div className="relative w-full sm:w-80">
+            <svg
             className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
             fill="none"
             viewBox="0 0 24 24"
@@ -116,6 +148,7 @@ export default function EmployeesPage() {
             placeholder="Search by name, email, role or department…"
             className="input-field pl-10"
           />
+          </div>
         </div>
       </div>
 
@@ -163,19 +196,46 @@ export default function EmployeesPage() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        {emp.photoUrl ? (
-                          <img
-                            src={`http://localhost:3000${emp.photoUrl}`}
-                            alt={emp.name}
-                            className="w-10 h-10 rounded-xl object-cover border border-emerald-500/40 shadow-md shrink-0"
+                        <div className="relative shrink-0">
+                          {emp.photoUrl ? (
+                            <img
+                              src={`http://localhost:3000${emp.photoUrl}`}
+                              alt={emp.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-emerald-500/40 shadow-md"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white shadow-md">
+                              {emp.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0f172a] ${
+                              presenceMap[emp.id]?.isOnline
+                                ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+                                : presenceMap[emp.id]?.status === PresenceStatus.ON_LEAVE
+                                ? 'bg-amber-400'
+                                : 'bg-slate-500'
+                            }`}
                           />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md">
-                            {emp.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        </div>
                         <div>
-                          <span className="text-white font-medium block">{emp.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium block">
+                              {emp.name}
+                              {!emp.isActive && <span className="ml-2 text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Deactivated</span>}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                                presenceMap[emp.id]?.isOnline
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : presenceMap[emp.id]?.status === PresenceStatus.ON_LEAVE
+                                  ? 'bg-amber-500/20 text-amber-400'
+                                  : 'bg-slate-800 text-slate-500'
+                              }`}
+                            >
+                              {presenceMap[emp.id]?.isOnline ? '🟢 Online' : presenceMap[emp.id]?.status === PresenceStatus.ON_LEAVE ? '🏖️ Leave' : '⚫ Offline'}
+                            </span>
+                          </div>
                           <span className="text-[11px] text-slate-400 font-medium">{emp.department || 'Unassigned'}</span>
                         </div>
                       </div>
@@ -276,6 +336,23 @@ export default function EmployeesPage() {
                             />
                           </svg>
                           Issue Card
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(emp)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm border ${
+                            emp.isActive
+                              ? 'text-red-400 bg-red-500/10 border-red-500/20 hover:bg-red-500/20'
+                              : 'text-slate-300 bg-slate-500/10 border-slate-500/30 hover:bg-slate-500/20'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {emp.isActive ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            )}
+                          </svg>
+                          {emp.isActive ? 'Deactivate' : 'Reactivate'}
                         </button>
                       </div>
                     </td>

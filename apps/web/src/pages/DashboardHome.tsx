@@ -1,24 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { attendanceApi } from '../api/client';
+import { attendanceApi, presenceApi } from '../api/client';
 import { Link } from 'react-router-dom';
 import { Role, AttendanceStatus } from '@hrms/shared';
-import type { AttendanceResponseDto } from '@hrms/shared';
+import type { AttendanceResponseDto, OnlineStatusRecordDto, PresenceStatsDto } from '@hrms/shared';
 
 export default function DashboardHome() {
   const { user } = useAuth();
   const [todayRecord, setTodayRecord] = useState<AttendanceResponseDto | null>(null);
   const [loadingAttendance, setLoadingAttendance] = useState(true);
+  const [onlineTeammates, setOnlineTeammates] = useState<OnlineStatusRecordDto[]>([]);
+  const [presenceStats, setPresenceStats] = useState<PresenceStatsDto | null>(null);
 
   useEffect(() => {
     const fetchToday = async () => {
       try {
-        const records = await attendanceApi.getMyAttendance();
+        const [records, liveList, stats] = await Promise.all([
+          attendanceApi.getMyAttendance(),
+          presenceApi.getLive(),
+          presenceApi.getStats(),
+        ]);
         const today = new Date().toDateString();
         const todayRec = records.find(
           (r) => new Date(r.clockInTime).toDateString() === today
         );
         setTodayRecord(todayRec || null);
+        setOnlineTeammates(liveList.filter((r) => r.isOnline).slice(0, 7));
+        setPresenceStats(stats);
       } catch {
         // ignore
       } finally {
@@ -138,6 +146,66 @@ export default function DashboardHome() {
               year: 'numeric',
             })}
           </p>
+        </div>
+      </div>
+
+      {/* Live Team Presence Radar Banner */}
+      <div className="glass-card p-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-indigo-500/5 to-transparent relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+              </span>
+              <h2 className="text-lg font-bold text-white tracking-tight">Live Team Radar</h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {presenceStats ? (
+                <>
+                  <strong className="text-emerald-400 font-semibold">{presenceStats.onlineCount} online</strong> out of {presenceStats.totalEmployees} teammates right now ({presenceStats.officeCount} office, {presenceStats.remoteCount} remote).
+                </>
+              ) : (
+                'Check live online status across the whole company.'
+              )}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Avatar pile of online teammates */}
+            <div className="flex -space-x-2 overflow-hidden">
+              {onlineTeammates.map((tm) => (
+                <div
+                  key={tm.userId}
+                  title={`${tm.name} (${tm.status === 'ONLINE_OFFICE' ? 'Office' : 'Remote'})`}
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-900 overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                >
+                  {tm.photoUrl ? (
+                    <img
+                      src={`http://localhost:3000${tm.photoUrl}`}
+                      alt={tm.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    tm.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+              ))}
+              {presenceStats && presenceStats.onlineCount > onlineTeammates.length && (
+                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-slate-900 bg-slate-800 text-[10px] font-bold text-slate-300">
+                  +{presenceStats.onlineCount - onlineTeammates.length}
+                </div>
+              )}
+            </div>
+
+            <Link
+              to="/dashboard/presence"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-indigo-500/20 border border-emerald-500/30 text-emerald-400 hover:text-white hover:border-emerald-500/60 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 flex-shrink-0"
+            >
+              <span>Explore Live Radar</span>
+              <span>→</span>
+            </Link>
+          </div>
         </div>
       </div>
 

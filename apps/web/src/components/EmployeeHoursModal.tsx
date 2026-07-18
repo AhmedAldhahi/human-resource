@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { attendanceApi } from '../api/client';
-import { AttendanceResponseDto, AttendanceStatus, Role } from '@hrms/shared';
+import React, { useEffect, useState, useMemo } from 'react';
+import { attendanceApi, usersApi, voaderaApi } from '../api/client';
+import { AttendanceResponseDto, AttendanceStatus, Role, VoaderaDailyReportDto } from '@hrms/shared';
 
 interface EmployeeHoursModalProps {
   isOpen: boolean;
@@ -18,6 +18,8 @@ interface EditingRecordState {
   clockOutTime: string; // HH:mm
   intendedTask: string;
   status: AttendanceStatus;
+  completedTasksCount: string | number;
+  clockOutNote: string;
 }
 
 export default function EmployeeHoursModal({
@@ -33,6 +35,11 @@ export default function EmployeeHoursModal({
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
 
+  const [activeTab, setActiveTab] = useState<'CLOCK_IN' | 'SERVER_HOURS' | 'COMPARE'>('CLOCK_IN');
+  const [voaderaDailyReports, setVoaderaDailyReports] = useState<VoaderaDailyReportDto[]>([]);
+  const [voaderaLoading, setVoaderaLoading] = useState(false);
+  const [voaderaError, setVoaderaError] = useState<string>('');
+
   // Editing state
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditingRecordState | null>(null);
@@ -42,14 +49,41 @@ export default function EmployeeHoursModal({
   const fetchAttendance = async () => {
     if (!employeeId) return;
     setLoading(true);
+    setVoaderaLoading(true);
     setError('');
+    setVoaderaError('');
     try {
-      const data = await attendanceApi.getByEmployee(employeeId);
+      const [user, data] = await Promise.all([
+        usersApi.getById(employeeId),
+        attendanceApi.getByEmployee(employeeId)
+      ]);
       setRecords(data);
+
+      try {
+        const employees = await voaderaApi.getEmployees();
+        let matched = null;
+        if (user.tsUsername) {
+          matched = employees.find(e => e.windowsId === user.tsUsername);
+        }
+        if (!matched && employeeName) {
+          matched = employees.find(e => (e.name || '').toLowerCase() === employeeName.toLowerCase() || e.windowsId === employeeName);
+        }
+
+        if (matched) {
+          const reports = await voaderaApi.getDailyReport(matched.id);
+          setVoaderaDailyReports(reports);
+        } else {
+          setVoaderaError('No matching Tracker account found. Please link Windows Username in profile.');
+          setVoaderaDailyReports([]);
+        }
+      } catch (err: any) {
+        setVoaderaError('Failed to load tracker data.');
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to fetch attendance records.');
     } finally {
       setLoading(false);
+      setVoaderaLoading(false);
     }
   };
 
@@ -63,8 +97,6 @@ export default function EmployeeHoursModal({
       setStatusFilter('ALL');
     }
   }, [isOpen, employeeId]);
-
-  if (!isOpen) return null;
 
   // Compute stats
   const totalRecords = records.length;
@@ -154,6 +186,8 @@ export default function EmployeeHoursModal({
       clockOutTime,
       intendedTask: rec.intendedTask || '',
       status: rec.status,
+      completedTasksCount: rec.completedTasksCount !== null && rec.completedTasksCount !== undefined ? rec.completedTasksCount : '',
+      clockOutNote: rec.clockOutNote || '',
     });
   };
 
@@ -209,11 +243,15 @@ export default function EmployeeHoursModal({
         combinedClockOut = d.toISOString();
       }
 
+      const num = editForm.completedTasksCount !== '' ? Number(editForm.completedTasksCount) : null;
+
       await attendanceApi.update(editingRecordId, {
         clockInTime: combinedClockIn.toISOString(),
         clockOutTime: combinedClockOut,
         intendedTask: editForm.intendedTask,
         status: editForm.status,
+        completedTasksCount: !isNaN(num as number) && num !== null ? num : null,
+        clockOutNote: editForm.clockOutNote.trim() || null,
       });
 
       setSuccessMsg('Attendance record updated successfully.');
@@ -228,7 +266,10 @@ export default function EmployeeHoursModal({
   };
 
   const formatDateDisplay = (iso: string) => {
-    return new Date(iso).toLocaleDateString('en-US', {
+    if (!iso) return 'N/A';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return d.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -237,7 +278,10 @@ export default function EmployeeHoursModal({
   };
 
   const formatTimeDisplay = (iso: string) => {
-    return new Date(iso).toLocaleTimeString([], {
+    if (!iso) return '--:--';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -245,13 +289,60 @@ export default function EmployeeHoursModal({
 
   const filteredRecords = records.filter((r) => {
     const matchesSearch =
-      r.intendedTask.toLowerCase().includes(search.toLowerCase()) ||
+      (r.intendedTask || '').toLowerCase().includes(search.toLowerCase()) ||
       formatDateDisplay(r.clockInTime).toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
     if (statusFilter === 'ACTIVE') return r.status === AttendanceStatus.CLOCKED_IN || !r.clockOutTime;
     if (statusFilter === 'COMPLETED') return r.status === AttendanceStatus.CLOCKED_OUT && r.clockOutTime !== null;
     return true;
   });
+
+  const compareData = useMemo(() => {
+     const groupedHrms: Record<string, { totalMins: number; count: number; firstClockIn: string; lastClockOut: string | null }> = {};
+     records.forEach(r => {
+        const dateStr = formatIsoToDateInputValue(r.clockInTime);
+        if (!groupedHrms[dateStr]) {
+           groupedHrms[dateStr] = { totalMins: 0, count: 0, firstClockIn: r.clockInTime, lastClockOut: r.clockOutTime };
+        }
+        
+        groupedHrms[dateStr].count++;
+        if (new Date(r.clockInTime) < new Date(groupedHrms[dateStr].firstClockIn)) {
+            groupedHrms[dateStr].firstClockIn = r.clockInTime;
+        }
+        if (r.clockOutTime) {
+            if (!groupedHrms[dateStr].lastClockOut || new Date(r.clockOutTime) > new Date(groupedHrms[dateStr].lastClockOut)) {
+                groupedHrms[dateStr].lastClockOut = r.clockOutTime;
+            }
+        }
+        
+        const start = new Date(r.clockInTime).getTime();
+        const end = r.clockOutTime ? new Date(r.clockOutTime).getTime() : new Date().getTime();
+        if (!isNaN(start) && !isNaN(end) && end > start) {
+           groupedHrms[dateStr].totalMins += Math.floor((end - start) / 60000);
+        }
+     });
+
+     const combinedDates = Array.from(new Set([...Object.keys(groupedHrms), ...voaderaDailyReports.map(r => r.date)])).sort().reverse();
+     
+     return combinedDates.map(date => {
+        const hrms = groupedHrms[date];
+        const voadera = voaderaDailyReports.find(r => r.date === date);
+        
+        let voaderaMins = 0;
+        if (voadera?.activeTime) {
+           const parts = voadera.activeTime.split(':');
+           if (parts.length >= 2) {
+              voaderaMins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+           }
+        }
+        
+        const diffMins = hrms ? voaderaMins - hrms.totalMins : 0;
+        
+        return { date, hrms, voadera, voaderaMins, diffMins };
+     });
+  }, [records, voaderaDailyReports]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
@@ -287,7 +378,32 @@ export default function EmployeeHoursModal({
           </button>
         </div>
 
-        {/* Stats Summary Bar */}
+        {/* Tab Bar */}
+        <div className="flex bg-slate-900/80 border-b border-white/10 px-6 pt-4 gap-2 overflow-x-auto">
+          <button 
+            onClick={() => setActiveTab('CLOCK_IN')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'CLOCK_IN' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            📋 Clock-In History
+          </button>
+          <button 
+            onClick={() => setActiveTab('SERVER_HOURS')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'SERVER_HOURS' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            🖥️ Tracker Server Hours
+          </button>
+          <button 
+            onClick={() => setActiveTab('COMPARE')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'COMPARE' ? 'border-purple-500 text-purple-400 bg-purple-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            ⚖️ Compare Daily
+          </button>
+        </div>
+
+        {activeTab === 'CLOCK_IN' && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Stats Summary Bar */}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-5 bg-white/[0.02] border-b border-white/10">
           <div className="glass-card px-5 py-4 flex items-center justify-between border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent shadow-sm">
             <div>
@@ -523,15 +639,40 @@ export default function EmployeeHoursModal({
 
                             {/* Task */}
                             <td className="px-6 py-4">
-                              <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-indigo-300 block">Intended Task</label>
-                                <textarea
-                                  rows={2}
-                                  value={editForm.intendedTask}
-                                  onChange={(e) => setEditForm({ ...editForm, intendedTask: e.target.value })}
-                                  className="input-field text-xs py-1.5 px-3 resize-none bg-slate-900 border-indigo-500/30 focus:border-indigo-500 w-full min-w-[260px]"
-                                  placeholder="Task description..."
-                                />
+                              <div className="space-y-2">
+                                <div>
+                                  <label className="text-[11px] font-bold text-indigo-300 block mb-1">Morning Plan (Intended Task)</label>
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.intendedTask}
+                                    onChange={(e) => setEditForm({ ...editForm, intendedTask: e.target.value })}
+                                    className="input-field text-xs py-1.5 px-3 resize-none bg-slate-900 border-indigo-500/30 focus:border-indigo-500 w-full min-w-[260px]"
+                                    placeholder="Task description..."
+                                  />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 bg-slate-900/60 p-2 rounded-lg border border-white/5">
+                                  <div>
+                                    <label className="text-[10px] font-bold text-emerald-400 block mb-1">Output (#)</label>
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      value={editForm.completedTasksCount}
+                                      onChange={(e) => setEditForm({ ...editForm, completedTasksCount: e.target.value })}
+                                      className="input-field text-xs py-1 px-2 bg-slate-950 border-emerald-500/30 font-mono text-emerald-300 w-full"
+                                      placeholder="Count"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <label className="text-[10px] font-bold text-emerald-400 block mb-1">Results Explanation</label>
+                                    <input
+                                      type="text"
+                                      value={editForm.clockOutNote}
+                                      onChange={(e) => setEditForm({ ...editForm, clockOutNote: e.target.value })}
+                                      className="input-field text-xs py-1 px-2 bg-slate-950 border-emerald-500/30 text-white w-full"
+                                      placeholder="Summary of results..."
+                                    />
+                                  </div>
+                                </div>
                               </div>
                             </td>
 
@@ -551,23 +692,23 @@ export default function EmployeeHoursModal({
                                   className="input-field text-xs py-2 px-3 bg-slate-900 border-indigo-500/30 focus:border-indigo-500 font-medium w-48 min-w-[180px]"
                                 >
                                   <option value={AttendanceStatus.CLOCKED_IN}>Active (Clocked In)</option>
-                                  <option value={AttendanceStatus.CLOCKED_OUT}>Completed (Clocked Out)</option>
+                                  <option value={AttendanceStatus.CLOCKED_OUT}>Completed</option>
                                 </select>
                               </div>
                             </td>
 
-                            {/* Actions */}
+                            {/* Save / Cancel buttons */}
                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2.5">
+                              <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={handleSaveEdit}
                                   disabled={saveLoading}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 disabled:opacity-50"
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-all duration-200 shadow-md disabled:opacity-50"
                                 >
                                   {saveLoading ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                   ) : (
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
                                   )}
@@ -576,7 +717,7 @@ export default function EmployeeHoursModal({
                                 <button
                                   onClick={cancelEditing}
                                   disabled={saveLoading}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 bg-white/10 hover:bg-white/20 transition-all"
+                                  className="inline-flex items-center px-3 py-2 rounded-xl text-xs font-bold text-slate-400 bg-white/5 hover:bg-white/10 hover:text-white transition-all duration-200 disabled:opacity-50"
                                 >
                                   Cancel
                                 </button>
@@ -616,8 +757,26 @@ export default function EmployeeHoursModal({
                               {durationStr}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-slate-200 max-w-md" title={record.intendedTask}>
-                            <p className="line-clamp-2 leading-relaxed">{record.intendedTask}</p>
+                          <td className="px-6 py-4 max-w-md">
+                            <div className="space-y-1">
+                              <p className="text-slate-200 line-clamp-2 leading-relaxed" title={record.intendedTask}>
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase mr-1.5">Morning Plan:</span>
+                                {record.intendedTask}
+                              </p>
+                              {(record.completedTasksCount !== null && record.completedTasksCount !== undefined || record.clockOutNote) && (
+                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 text-xs space-y-1">
+                                  {record.completedTasksCount !== null && record.completedTasksCount !== undefined && (
+                                    <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+                                      <span>🏆 Output/Score (#):</span>
+                                      <span className="bg-emerald-500/20 px-1.5 py-0.2 rounded font-mono">{record.completedTasksCount}</span>
+                                    </div>
+                                  )}
+                                  {record.clockOutNote && (
+                                    <p className="text-slate-300 italic text-[11px]">"{record.clockOutNote}"</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           {/* Wider, More Prominent Status Column */}
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -649,7 +808,114 @@ export default function EmployeeHoursModal({
               </div>
             </div>
           )}
+          </div>
         </div>
+        )}
+
+        {activeTab === 'SERVER_HOURS' && (
+           <div className="p-6 overflow-y-auto flex-1 flex flex-col">
+              {voaderaError ? (
+                 <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
+                   <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
+                 </div>
+              ) : voaderaLoading ? (
+                 <div className="flex justify-center py-20">
+                   <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                 </div>
+              ) : voaderaDailyReports.length === 0 ? (
+                 <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
+                   <p className="text-slate-400 text-base">No tracker data available for this employee.</p>
+                 </div>
+              ) : (
+                 <div className="glass-card overflow-hidden border border-white/10 shadow-inner">
+                   <table className="w-full text-sm">
+                     <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 shadow-sm border-b border-white/10">
+                       <tr>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Total Span Time</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-emerald-400 uppercase tracking-wider">Active Time</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-amber-400 uppercase tracking-wider">Idle Time</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-indigo-300 uppercase tracking-wider">Longest Idle Session</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-white/5">
+                       {voaderaDailyReports.map((report) => (
+                         <tr key={report.date} className="hover:bg-white/5 transition-colors duration-150">
+                           <td className="px-6 py-4 text-white font-bold">{report.date}</td>
+                           <td className="px-6 py-4 text-slate-300 font-mono">{report.totalTime}</td>
+                           <td className="px-6 py-4 text-emerald-400 font-bold">{report.activeTime}</td>
+                           <td className="px-6 py-4 text-amber-400 font-medium">{report.idleTime}</td>
+                           <td className="px-6 py-4 text-indigo-300 font-medium">{report.longestIdle}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+              )}
+           </div>
+        )}
+
+        {activeTab === 'COMPARE' && (
+           <div className="p-6 overflow-y-auto flex-1 flex flex-col">
+              {voaderaError ? (
+                 <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
+                   <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
+                 </div>
+              ) : voaderaLoading ? (
+                 <div className="flex justify-center py-20">
+                   <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                 </div>
+              ) : (
+                 <div className="glass-card overflow-hidden border border-white/10 shadow-inner">
+                   <table className="w-full text-sm">
+                     <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 shadow-sm border-b border-white/10">
+                       <tr>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-indigo-300 uppercase tracking-wider border-x border-white/5 bg-indigo-500/5 text-center" colSpan={2}>Clock-In (HRMS)</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-emerald-300 uppercase tracking-wider border-x border-white/5 bg-emerald-500/5 text-center" colSpan={2}>Tracker (Voadera)</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider text-center">Variance (Active vs Clocked)</th>
+                       </tr>
+                       <tr className="border-b border-white/10 text-[10px] text-slate-400">
+                         <th className="px-6 py-2"></th>
+                         <th className="px-6 py-2 border-l border-white/5 bg-indigo-500/5">First In / Last Out</th>
+                         <th className="px-6 py-2 border-r border-white/5 bg-indigo-500/5">Total Logged</th>
+                         <th className="px-6 py-2 border-l border-white/5 bg-emerald-500/5">Total Span Time</th>
+                         <th className="px-6 py-2 border-r border-white/5 bg-emerald-500/5">Active Time</th>
+                         <th className="px-6 py-2 text-center">Difference</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-white/5">
+                       {compareData.map((row) => (
+                         <tr key={row.date} className="hover:bg-white/5 transition-colors duration-150">
+                           <td className="px-6 py-4 text-white font-bold">{row.date}</td>
+                           <td className="px-6 py-4 text-slate-300 font-mono text-[11px] whitespace-nowrap bg-indigo-500/5 border-l border-white/5">
+                             {row.hrms ? `${formatTimeDisplay(row.hrms.firstClockIn)} - ${row.hrms.lastClockOut ? formatTimeDisplay(row.hrms.lastClockOut) : 'Ongoing'}` : '-'}
+                           </td>
+                           <td className="px-6 py-4 text-indigo-300 font-bold bg-indigo-500/5 border-r border-white/5">
+                             {row.hrms ? `${Math.floor(row.hrms.totalMins / 60)}h ${row.hrms.totalMins % 60}m` : '-'}
+                           </td>
+                           <td className="px-6 py-4 text-slate-300 font-mono bg-emerald-500/5 border-l border-white/5">
+                             {row.voadera ? row.voadera.totalTime : '-'}
+                           </td>
+                           <td className="px-6 py-4 text-emerald-400 font-bold bg-emerald-500/5 border-r border-white/5">
+                             {row.voadera ? row.voadera.activeTime : '-'}
+                           </td>
+                           <td className="px-6 py-4 text-center font-bold">
+                             {row.hrms && row.voadera ? (
+                               <span className={row.diffMins >= 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                                 {row.diffMins > 0 ? '+' : ''}{row.diffMins === 0 ? 'Match' : `${row.diffMins < 0 ? '-' : ''}${Math.floor(Math.abs(row.diffMins) / 60)}h ${Math.abs(row.diffMins) % 60}m`}
+                               </span>
+                             ) : '-'}
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+              )}
+           </div>
+        )}
+
 
         {/* Footer */}
         <div className="p-5 px-8 border-t border-white/10 bg-slate-900/80 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-400">

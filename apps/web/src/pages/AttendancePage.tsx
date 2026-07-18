@@ -10,6 +10,8 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState('');
   const [workLocation, setWorkLocation] = useState<WorkLocation>(WorkLocation.OFFICE);
+  const [completedTasksCount, setCompletedTasksCount] = useState<string>('');
+  const [clockOutNote, setClockOutNote] = useState<string>('');
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,7 +64,13 @@ export default function AttendancePage() {
     setError('');
     setActionLoading(true);
     try {
-      await attendanceApi.clockOut();
+      const num = completedTasksCount !== '' ? Number(completedTasksCount) : undefined;
+      await attendanceApi.clockOut({
+        completedTasksCount: !isNaN(num as number) && num !== undefined ? num : null,
+        clockOutNote: clockOutNote.trim() || null,
+      });
+      setCompletedTasksCount('');
+      setClockOutNote('');
       await fetchRecords();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to clock out.');
@@ -156,29 +164,72 @@ export default function AttendancePage() {
         )}
 
         {isClockedIn ? (
-          <div className="space-y-4">
-            <div className="bg-white/5 rounded-xl p-4 space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Working on
+          <div className="space-y-6">
+            <div className="bg-white/5 rounded-xl p-4 space-y-2 border border-white/10">
+              <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+                Morning Plan / Intended Task
               </p>
-              <p className="text-white">{activeRecord.intendedTask}</p>
+              <p className="text-white font-medium">{activeRecord.intendedTask}</p>
               <p className="text-xs text-slate-500">
-                Since {formatTime(activeRecord.clockInTime)}
+                Clocked in since {formatTime(activeRecord.clockInTime)} ({activeRecord.workLocation === WorkLocation.OFFICE ? '🏢 Office' : '🏠 Home'})
               </p>
             </div>
+
+            {/* Results of today (Number + Text) */}
+            <div className="bg-slate-900/60 border border-emerald-500/30 rounded-xl p-5 space-y-4 shadow-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏁</span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Log Today's Results</h3>
+                  <p className="text-xs text-slate-400">Record what you achieved before clocking out for the day</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Tasks / Output (#)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={completedTasksCount}
+                    onChange={(e) => setCompletedTasksCount(e.target.value)}
+                    placeholder="e.g. 5 or 100"
+                    className="input-field py-2 text-sm bg-slate-950/80 border-emerald-500/30 focus:border-emerald-400 font-mono text-emerald-300 placeholder:text-slate-600 w-full"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-1 block">Number field</span>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Results Explanation / Summary
+                  </label>
+                  <input
+                    type="text"
+                    value={clockOutNote}
+                    onChange={(e) => setClockOutNote(e.target.value)}
+                    placeholder="Briefly explain your results/accomplishments today..."
+                    className="input-field py-2 text-sm bg-slate-950/80 border-emerald-500/30 focus:border-emerald-400 text-white placeholder:text-slate-600 w-full"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-1 block">Explanation text next to output</span>
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={handleClockOut}
               disabled={actionLoading}
-              className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl font-semibold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all duration-200 disabled:opacity-50"
             >
               {actionLoading ? (
-                <div className="w-5 h-5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               )}
-              Clock Out
+              Submit Results & Clock Out
             </button>
           </div>
         ) : (
@@ -371,8 +422,26 @@ export default function AttendancePage() {
                             {durationStr}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-300 max-w-xs truncate" title={record.intendedTask}>
-                          {record.intendedTask}
+                        <td className="px-6 py-4 max-w-sm">
+                          <div className="space-y-1">
+                            <p className="text-slate-300 truncate" title={record.intendedTask}>
+                              <span className="text-[10px] text-indigo-400 font-bold uppercase mr-1">Plan:</span>
+                              {record.intendedTask}
+                            </p>
+                            {(record.completedTasksCount !== null && record.completedTasksCount !== undefined || record.clockOutNote) && (
+                              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-xs space-y-0.5">
+                                {record.completedTasksCount !== null && record.completedTasksCount !== undefined && (
+                                  <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+                                    <span>🏆 Score/Count:</span>
+                                    <span className="bg-emerald-500/20 px-1.5 py-0.2 rounded font-mono">{record.completedTasksCount}</span>
+                                  </div>
+                                )}
+                                {record.clockOutNote && (
+                                  <p className="text-slate-300 italic text-[11px] line-clamp-2">"{record.clockOutNote}"</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold min-w-[140px] ${

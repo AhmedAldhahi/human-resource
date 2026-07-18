@@ -58,7 +58,9 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.1.28",
     "@nestjs/serve-static": "^5.0.5",
+    "@nestjs/websockets": "^11.1.28",
     "@prisma/client": "^5.22.0",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
@@ -74,6 +76,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.30.3",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   }
 }

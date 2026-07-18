@@ -1,10 +1,30 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttendanceResponseDto, AttendanceStatus, UpdateAttendanceDto, WorkLocation } from '@hrms/shared';
+import { AttendanceResponseDto, AttendanceStatus, UpdateAttendanceDto, WorkLocation, ClockOutDto } from '@hrms/shared';
+import { PresenceGateway } from '../presence/presence.gateway';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly presenceGateway?: PresenceGateway,
+  ) {}
+
+  private mapRecord(record: any): AttendanceResponseDto {
+    return {
+      id: record.id,
+      employeeId: record.employeeId,
+      clockInTime: record.clockInTime.toISOString(),
+      clockOutTime: record.clockOutTime ? record.clockOutTime.toISOString() : null,
+      intendedTask: record.intendedTask,
+      status: record.status as AttendanceStatus,
+      workLocation: record.workLocation as WorkLocation,
+      latePenalty: record.latePenalty,
+      penaltyMinutes: record.penaltyMinutes,
+      completedTasksCount: record.completedTasksCount ?? null,
+      clockOutNote: record.clockOutNote ?? null,
+    };
+  }
 
   async clockIn(
     employeeId: string,
@@ -26,17 +46,23 @@ export class AttendanceService {
 
     if (openAttendance) {
       throw new BadRequestException(
-        'You already have an open attendance record. Please clock out first.',
+        'You are already clocked in. Please clock out first.',
       );
     }
 
     const now = new Date();
-    const isOffice = workLocation === WorkLocation.OFFICE;
-    // Late penalty if arriving at office after 9 AM (hour >= 9 and minute > 0 or hour > 9)
-    // To be precise: if hour >= 9 (e.g. 9:01 AM or later, or exactly 9:00 if strictly after 9:00 AM)
-    const isAfterNine = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 0);
-    const latePenalty = isOffice && isAfterNine;
-    const penaltyMinutes = latePenalty ? 45 : 0;
+    const workStart = new Date(now);
+    workStart.setHours(9, 0, 0, 0);
+
+    let latePenalty = false;
+    let penaltyMinutes = 0;
+
+    if (now > workStart) {
+      latePenalty = true;
+      penaltyMinutes = Math.floor(
+        (now.getTime() - workStart.getTime()) / (1000 * 60),
+      );
+    }
 
     const attendance = await this.prisma.attendance.create({
       data: {
@@ -49,22 +75,15 @@ export class AttendanceService {
       },
     });
 
-    return {
-      id: attendance.id,
-      employeeId: attendance.employeeId,
-      clockInTime: attendance.clockInTime.toISOString(),
-      clockOutTime: attendance.clockOutTime
-        ? attendance.clockOutTime.toISOString()
-        : null,
-      intendedTask: attendance.intendedTask,
-      status: attendance.status as AttendanceStatus,
-      workLocation: attendance.workLocation as WorkLocation,
-      latePenalty: attendance.latePenalty,
-      penaltyMinutes: attendance.penaltyMinutes,
-    };
+    this.presenceGateway?.broadcastPresenceUpdate();
+
+    return this.mapRecord(attendance);
   }
 
-  async clockOut(employeeId: string): Promise<AttendanceResponseDto> {
+  async clockOut(
+    employeeId: string,
+    dto?: ClockOutDto,
+  ): Promise<AttendanceResponseDto> {
     const openAttendance = await this.prisma.attendance.findFirst({
       where: {
         employeeId,
@@ -84,22 +103,14 @@ export class AttendanceService {
       data: {
         clockOutTime: new Date(),
         status: AttendanceStatus.CLOCKED_OUT,
+        ...(dto?.completedTasksCount !== undefined ? { completedTasksCount: dto.completedTasksCount } : {}),
+        ...(dto?.clockOutNote !== undefined ? { clockOutNote: dto.clockOutNote } : {}),
       },
     });
 
-    return {
-      id: attendance.id,
-      employeeId: attendance.employeeId,
-      clockInTime: attendance.clockInTime.toISOString(),
-      clockOutTime: attendance.clockOutTime
-        ? attendance.clockOutTime.toISOString()
-        : null,
-      intendedTask: attendance.intendedTask,
-      status: attendance.status as AttendanceStatus,
-      workLocation: attendance.workLocation as WorkLocation,
-      latePenalty: attendance.latePenalty,
-      penaltyMinutes: attendance.penaltyMinutes,
-    };
+    this.presenceGateway?.broadcastPresenceUpdate();
+
+    return this.mapRecord(attendance);
   }
 
   async getMyAttendance(employeeId: string): Promise<AttendanceResponseDto[]> {
@@ -108,19 +119,7 @@ export class AttendanceService {
       orderBy: { clockInTime: 'desc' },
     });
 
-    return records.map((record) => ({
-      id: record.id,
-      employeeId: record.employeeId,
-      clockInTime: record.clockInTime.toISOString(),
-      clockOutTime: record.clockOutTime
-        ? record.clockOutTime.toISOString()
-        : null,
-      intendedTask: record.intendedTask,
-      status: record.status as AttendanceStatus,
-      workLocation: record.workLocation as WorkLocation,
-      latePenalty: record.latePenalty,
-      penaltyMinutes: record.penaltyMinutes,
-    }));
+    return records.map((record) => this.mapRecord(record));
   }
 
   async getByEmployee(employeeId: string): Promise<AttendanceResponseDto[]> {
@@ -129,19 +128,7 @@ export class AttendanceService {
       orderBy: { clockInTime: 'desc' },
     });
 
-    return records.map((record) => ({
-      id: record.id,
-      employeeId: record.employeeId,
-      clockInTime: record.clockInTime.toISOString(),
-      clockOutTime: record.clockOutTime
-        ? record.clockOutTime.toISOString()
-        : null,
-      intendedTask: record.intendedTask,
-      status: record.status as AttendanceStatus,
-      workLocation: record.workLocation as WorkLocation,
-      latePenalty: record.latePenalty,
-      penaltyMinutes: record.penaltyMinutes,
-    }));
+    return records.map((record) => this.mapRecord(record));
   }
 
   async updateAttendance(id: string, dto: UpdateAttendanceDto): Promise<AttendanceResponseDto> {
@@ -175,24 +162,20 @@ export class AttendanceService {
     if (dto.penaltyMinutes !== undefined) {
       data.penaltyMinutes = dto.penaltyMinutes;
     }
+    if (dto.completedTasksCount !== undefined) {
+      data.completedTasksCount = dto.completedTasksCount;
+    }
+    if (dto.clockOutNote !== undefined) {
+      data.clockOutNote = dto.clockOutNote;
+    }
 
     const updated = await this.prisma.attendance.update({
       where: { id },
       data,
     });
 
-    return {
-      id: updated.id,
-      employeeId: updated.employeeId,
-      clockInTime: updated.clockInTime.toISOString(),
-      clockOutTime: updated.clockOutTime ? updated.clockOutTime.toISOString() : null,
-      intendedTask: updated.intendedTask,
-      status: updated.status as AttendanceStatus,
-      workLocation: updated.workLocation as WorkLocation,
-      latePenalty: updated.latePenalty,
-      penaltyMinutes: updated.penaltyMinutes,
-    };
+    this.presenceGateway?.broadcastPresenceUpdate();
+
+    return this.mapRecord(updated);
   }
 }
-
-

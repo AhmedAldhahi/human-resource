@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateAbsenceDto,
@@ -8,10 +8,14 @@ import {
   WorkLocation,
   EmployeeType,
 } from '@hrms/shared';
+import { PresenceGateway } from '../presence/presence.gateway';
 
 @Injectable()
 export class AbsenceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly presenceGateway?: PresenceGateway,
+  ) {}
 
   private mapRecord(record: any): AbsenceRecordResponseDto {
     return {
@@ -128,6 +132,8 @@ export class AbsenceService {
       });
     }
 
+    this.presenceGateway?.broadcastPresenceUpdate();
+
     return this.mapRecord(record);
   }
 
@@ -218,6 +224,8 @@ export class AbsenceService {
       data: { status, isPaid },
       include: { user: true },
     });
+
+    this.presenceGateway?.broadcastPresenceUpdate();
 
     return this.mapRecord(updated);
   }

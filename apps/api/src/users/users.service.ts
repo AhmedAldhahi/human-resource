@@ -8,18 +8,39 @@ import {
   UpdateWageDto,
   UpdateEmployeeTypeDto,
   EmployeeType,
+  CARD_POINT_VALUES,
 } from '@hrms/shared';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapUser(user: any): UserResponseDto {
+  private async getPointsMapForCurrentMonth(): Promise<Map<string, number>> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const cards = await this.prisma.performanceCard.findMany({
+      where: { issuedAt: { gte: startOfMonth, lte: endOfMonth } },
+      select: { employeeId: true, cardType: true },
+    });
+
+    const map = new Map<string, number>();
+    for (const c of cards) {
+      const current = map.get(c.employeeId) || 0;
+      const pointVal = CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0;
+      map.set(c.employeeId, current + pointVal);
+    }
+    return map;
+  }
+
+  private mapUser(user: any, netPoints = 0): UserResponseDto {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role as UserResponseDto['role'],
+      isActive: user.isActive ?? true,
       employeeType: (user.employeeType as EmployeeType) ?? EmployeeType.FIXED,
       monthlySalary: user.monthlySalary ?? 0,
       photoUrl: user.photoUrl ?? null,
@@ -27,11 +48,14 @@ export class UsersService {
       sickDaysLeft: user.sickDaysLeft ?? 14,
       vacationDaysLeft: user.vacationDaysLeft ?? 14,
       earlyLeaveMinutesAccumulated: user.earlyLeaveMinutesAccumulated ?? 0,
-      netCardPoints: user.netCardPoints ?? 0,
+      netCardPoints: netPoints,
       hourlyWage: user.hourlyWage ?? 0,
       phone: user.phone ?? null,
       department: user.department ?? null,
       bio: user.bio ?? null,
+      customStatus: user.customStatus ?? null,
+      customEmoji: user.customEmoji ?? null,
+      tsUsername: user.tsUsername ?? null,
       createdAt: user.createdAt.toISOString(),
     };
   }
@@ -41,6 +65,7 @@ export class UsersService {
     email: true,
     name: true,
     role: true,
+    isActive: true,
     employeeType: true,
     monthlySalary: true,
     photoUrl: true,
@@ -53,29 +78,39 @@ export class UsersService {
     phone: true,
     department: true,
     bio: true,
+    customStatus: true,
+    customEmoji: true,
+    tsUsername: true,
     createdAt: true,
   };
 
-  async findAll(): Promise<UserResponseDto[]> {
-    const users = await this.prisma.user.findMany({
-      select: this.userSelect,
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(includeInactive: boolean = false): Promise<UserResponseDto[]> {
+    const [users, pointsMap] = await Promise.all([
+      this.prisma.user.findMany({
+        where: includeInactive ? undefined : { isActive: true },
+        select: this.userSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.getPointsMapForCurrentMonth(),
+    ]);
 
-    return users.map((user) => this.mapUser(user));
+    return users.map((user) => this.mapUser(user, pointsMap.get(user.id) || 0));
   }
 
   async findById(id: string): Promise<UserResponseDto | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: this.userSelect,
-    });
+    const [user, pointsMap] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id },
+        select: this.userSelect,
+      }),
+      this.getPointsMapForCurrentMonth(),
+    ]);
 
     if (!user) {
       return null;
     }
 
-    return this.mapUser(user);
+    return this.mapUser(user, pointsMap.get(user.id) || 0);
   }
 
   async findByEmail(email: string) {
@@ -103,7 +138,8 @@ export class UsersService {
       select: this.userSelect,
     });
 
-    return this.mapUser(user);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(user, pointsMap.get(user.id) || 0);
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserResponseDto> {
@@ -119,11 +155,15 @@ export class UsersService {
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.department !== undefined ? { department: dto.department } : {}),
         ...(dto.bio !== undefined ? { bio: dto.bio } : {}),
+        ...(dto.customStatus !== undefined ? { customStatus: dto.customStatus } : {}),
+        ...(dto.customEmoji !== undefined ? { customEmoji: dto.customEmoji } : {}),
+        ...(dto.tsUsername !== undefined ? { tsUsername: dto.tsUsername } : {}),
       },
       select: this.userSelect,
     });
 
-    return this.mapUser(updated);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
   }
 
   async updateWage(id: string, dto: UpdateWageDto): Promise<UserResponseDto> {
@@ -142,7 +182,8 @@ export class UsersService {
       select: this.userSelect,
     });
 
-    return this.mapUser(updated);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
   }
 
   async updateEmployeeType(id: string, dto: UpdateEmployeeTypeDto): Promise<UserResponseDto> {
@@ -161,7 +202,8 @@ export class UsersService {
       select: this.userSelect,
     });
 
-    return this.mapUser(updated);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
   }
 
   async resetAbsenceBalance(id: string): Promise<UserResponseDto> {
@@ -181,7 +223,8 @@ export class UsersService {
       select: this.userSelect,
     });
 
-    return this.mapUser(updated);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
   }
 
   async updatePhoto(id: string, photoUrl: string): Promise<UserResponseDto> {
@@ -196,7 +239,23 @@ export class UsersService {
       select: this.userSelect,
     });
 
-    return this.mapUser(updated);
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
+  }
+  async updateStatus(id: string, isActive: boolean): Promise<UserResponseDto> {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { isActive },
+      select: this.userSelect,
+    });
+
+    const pointsMap = await this.getPointsMapForCurrentMonth();
+    return this.mapUser(updated, pointsMap.get(updated.id) || 0);
   }
 }
 

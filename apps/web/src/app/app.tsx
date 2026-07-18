@@ -14,6 +14,8 @@ import AllCardsPage from '../pages/AllCardsPage';
 import IssueCardPage from '../pages/IssueCardPage';
 import AbsencePage from '../pages/AbsencePage';
 import ReportsPage from '../pages/ReportsPage';
+import PresencePage from '../pages/PresencePage';
+import { TrackerPage } from '../pages/TrackerPage';
 import { Role } from '@hrms/shared';
 
 export function App() {
@@ -34,6 +36,7 @@ export function App() {
             }
           >
             <Route index element={<DashboardHome />} />
+            <Route path="presence" element={<PresencePage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="attendance" element={<AttendancePage />} />
             <Route path="absence" element={<AbsencePage />} />
@@ -53,6 +56,14 @@ export function App() {
               element={
                 <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
                   <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="pc-tracker"
+              element={
+                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                  <TrackerPage />
                 </ProtectedRoute>
               }
             />

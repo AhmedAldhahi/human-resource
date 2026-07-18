@@ -7,6 +7,7 @@ export enum Role {
 }
 
 export enum CardType {
+  GOLD_PLUS_50 = 'GOLD_PLUS_50',
   BLUE_PLUS_30 = 'BLUE_PLUS_30',
   GREEN_PLUS_10 = 'GREEN_PLUS_10',
   YELLOW_MINUS_10 = 'YELLOW_MINUS_10',
@@ -45,6 +46,7 @@ export enum AbsenceStatus {
 // ─── Card Point Values ──────────────────────────────────────────────────────
 
 export const CARD_POINT_VALUES: Record<CardType, number> = {
+  [CardType.GOLD_PLUS_50]: 50,
   [CardType.BLUE_PLUS_30]: 30,
   [CardType.GREEN_PLUS_10]: 10,
   [CardType.YELLOW_MINUS_10]: -10,
@@ -83,6 +85,7 @@ export interface UserResponseDto {
   email: string;
   name: string;
   role: Role;
+  isActive: boolean;
   employeeType: EmployeeType;
   monthlySalary: number;
   photoUrl: string | null;
@@ -95,7 +98,14 @@ export interface UserResponseDto {
   phone?: string | null;
   department?: string | null;
   bio?: string | null;
+  customStatus?: string | null;
+  customEmoji?: string | null;
+  tsUsername?: string | null;
   createdAt: string;
+}
+
+export interface UpdateActiveStatusDto {
+  isActive: boolean;
 }
 
 export interface UpdateProfileDto {
@@ -103,6 +113,9 @@ export interface UpdateProfileDto {
   phone?: string;
   department?: string;
   bio?: string;
+  customStatus?: string;
+  customEmoji?: string;
+  tsUsername?: string;
 }
 
 export interface UpdateWageDto {
@@ -124,6 +137,11 @@ export interface ClockInDto {
   workLocation?: WorkLocation;
 }
 
+export interface ClockOutDto {
+  completedTasksCount?: number | null;
+  clockOutNote?: string | null;
+}
+
 export interface AttendanceResponseDto {
   id: string;
   employeeId: string;
@@ -134,6 +152,8 @@ export interface AttendanceResponseDto {
   workLocation: WorkLocation;
   latePenalty: boolean;
   penaltyMinutes: number;
+  completedTasksCount?: number | null;
+  clockOutNote?: string | null;
 }
 
 export interface UpdateAttendanceDto {
@@ -144,6 +164,8 @@ export interface UpdateAttendanceDto {
   workLocation?: WorkLocation;
   latePenalty?: boolean;
   penaltyMinutes?: number;
+  completedTasksCount?: number | null;
+  clockOutNote?: string | null;
 }
 
 // ─── Performance Card DTOs ──────────────────────────────────────────────────
@@ -228,5 +250,92 @@ export interface PayrollItemDto {
   unpaidAbsenceDays: number;
   netCardPoints: number;
   calculatedCompensation: number;
+}
+
+// ─── Presence & Live Radar DTOs ─────────────────────────────────────────────
+
+export enum PresenceStatus {
+  ONLINE_OFFICE = 'ONLINE_OFFICE',
+  ONLINE_REMOTE = 'ONLINE_REMOTE',
+  ON_LEAVE = 'ON_LEAVE',
+  OFFLINE = 'OFFLINE',
+}
+
+export interface OnlineStatusRecordDto {
+  userId: string;
+  name: string;
+  email: string;
+  role: Role;
+  department?: string | null;
+  photoUrl?: string | null;
+  status: PresenceStatus;
+  isOnline: boolean;
+  clockInTime?: string | null;
+  workLocation?: WorkLocation | null;
+  intendedTask?: string | null;
+  customStatus?: string | null;
+  customEmoji?: string | null;
+  absenceType?: AbsenceType | null;
+  absenceReason?: string | null;
+  netCardPoints: number;
+}
+
+export interface UpdateCustomStatusDto {
+  customStatus?: string | null;
+  customEmoji?: string | null;
+}
+
+export interface PresenceStatsDto {
+  totalEmployees: number;
+  onlineCount: number;
+  officeCount: number;
+  remoteCount: number;
+  onLeaveCount: number;
+  offlineCount: number;
+}
+
+// ─── Voadera Tracker DTOs ───────────────────────────────────────────────────
+
+export interface VoaderaEmployeeDto {
+  id: string;
+  windowsId: string;
+  name: string;
+  department: string;
+  totalTime: string;
+  activeTime: string;
+  idleTime: string;
+  longestIdle: string;
+  inOfficeToday: boolean;
+  idleLimit: number;
+  forceLogoff: boolean;
+  securityAlerts: VoaderaSecurityAlertDto[];
+}
+
+export interface VoaderaSessionDto {
+  id: string;
+  employeeId: string;
+  loginTime: string;
+  logoutTime: string | null;
+  lastSeen: string;
+}
+
+export interface VoaderaDailyReportDto {
+  date: string;
+  totalTime: string;
+  activeTime: string;
+  idleTime: string;
+  longestIdle: string;
+}
+
+export interface VoaderaSecurityAlertDto {
+  id: string;
+  tsUsername: string;
+  alertType: string;
+  severity?: string | null;
+  reason?: string | null;
+  timestamp: string;
+  durationSeconds?: number | null;
+  totalJigglerMinutes?: number | null;
+  totalGenuineMinutes?: number | null;
 }
 

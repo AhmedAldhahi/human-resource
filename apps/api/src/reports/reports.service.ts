@@ -8,6 +8,7 @@ import {
   WorkLocation,
   AttendanceStatus,
   AbsenceStatus,
+  CARD_POINT_VALUES,
 } from '@hrms/shared';
 
 @Injectable()
@@ -142,11 +143,25 @@ export class ReportsService {
       });
       const unpaidAbsenceDays = absences.length;
 
+      // Query performance cards specifically issued in this target month
+      const monthCards = await this.prisma.performanceCard.findMany({
+        where: {
+          employeeId: user.id,
+          issuedAt: { gte: startOfMonth, lte: endOfMonth },
+        },
+        select: { cardType: true },
+      });
+
+      const monthPoints = monthCards.reduce(
+        (sum, c) => sum + (CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0),
+        0,
+      );
+
       let calculatedCompensation = 0;
       const empType = (user.employeeType as EmployeeType) ?? EmployeeType.FIXED;
       const monthlySalary = user.monthlySalary ?? 0;
       const hourlyWage = user.hourlyWage ?? 0;
-      const pointsAdjustment = user.netCardPoints; // $1 per card point
+      const pointsAdjustment = monthPoints; // $1 per card point
 
       if (empType === EmployeeType.FIXED) {
         // Fixed salary minus unpaid absence deductions plus card points
@@ -169,7 +184,7 @@ export class ReportsService {
         totalHoursWorked,
         penaltyMinutesTotal,
         unpaidAbsenceDays,
-        netCardPoints: user.netCardPoints,
+        netCardPoints: monthPoints,
         calculatedCompensation: Math.round(calculatedCompensation * 100) / 100,
       });
     }

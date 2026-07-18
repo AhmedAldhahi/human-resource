@@ -25,6 +25,17 @@ interface CardOption {
 
 const cardOptions: CardOption[] = [
   {
+    type: CardType.GOLD_PLUS_50,
+    label: 'Outstanding',
+    description: 'Exceptional performance',
+    points: CARD_POINT_VALUES.GOLD_PLUS_50,
+    color: 'text-amber-300',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-400/50',
+    glow: 'shadow-amber-500/20',
+    ring: 'ring-amber-500',
+  },
+  {
     type: CardType.BLUE_PLUS_30,
     label: 'Excellence',
     description: 'Outstanding performance',

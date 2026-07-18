@@ -15,6 +15,7 @@ import { Roles } from '../auth/roles.decorator';
 import {
   Role,
   ClockInDto,
+  ClockOutDto,
   AttendanceResponseDto,
   UpdateAttendanceDto,
 } from '@hrms/shared';
@@ -40,8 +41,9 @@ export class AttendanceController {
   @UseGuards(JwtAuthGuard)
   async clockOut(
     @Request() req: { user: { userId: string; email: string; role: Role } },
+    @Body() clockOutDto?: ClockOutDto,
   ): Promise<AttendanceResponseDto> {
-    return this.attendanceService.clockOut(req.user.userId);
+    return this.attendanceService.clockOut(req.user.userId, clockOutDto);
   }
 
   @Get('my')

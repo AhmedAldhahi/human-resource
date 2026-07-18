@@ -12,6 +12,7 @@ import {
   BadRequestException,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -28,6 +29,7 @@ import {
   UpdateProfileDto,
   UpdateWageDto,
   UpdateEmployeeTypeDto,
+  UpdateActiveStatusDto,
 } from '@hrms/shared';
 
 @Controller('users')
@@ -37,8 +39,8 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.HR)
-  async findAll(): Promise<UserResponseDto[]> {
-    return this.usersService.findAll();
+  async findAll(@Query('includeInactive') includeInactive?: string): Promise<UserResponseDto[]> {
+    return this.usersService.findAll(includeInactive === 'true');
   }
 
   @Get('me')
@@ -168,6 +170,16 @@ export class UsersController {
 
     const photoUrl = `/uploads/photos/${file.filename}`;
     return this.usersService.updatePhoto(id, photoUrl);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateActiveStatusDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateStatus(id, dto.isActive);
   }
 }
 

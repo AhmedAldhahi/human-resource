@@ -15,6 +15,7 @@ enum Role {
 }
 
 enum CardType {
+  GOLD_PLUS_50
   BLUE_PLUS_30
   GREEN_PLUS_10
   YELLOW_MINUS_10
@@ -55,7 +56,9 @@ model User {
   email           String            @unique
   password        String
   name            String
+  tsUsername       String?           @unique  // Windows login name for Voadera Tracker link
   role            Role              @default(EMPLOYEE)
+  isActive        Boolean           @default(true)
   employeeType    EmployeeType      @default(FIXED)
   monthlySalary   Float             @default(0)
   photoUrl        String?
@@ -68,6 +71,8 @@ model User {
   phone           String?
   department      String?
   bio             String?
+  customStatus    String?
+  customEmoji     String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -84,11 +89,13 @@ model Attendance {
   clockOutTime   DateTime?
   intendedTask   String
   status         AttendanceStatus @default(CLOCKED_IN)
-  workLocation   WorkLocation     @default(OFFICE)
-  latePenalty    Boolean          @default(false)
-  penaltyMinutes Int              @default(0)
+  workLocation        WorkLocation     @default(OFFICE)
+  latePenalty         Boolean          @default(false)
+  penaltyMinutes      Int              @default(0)
+  completedTasksCount Float?
+  clockOutNote        String?
 
-  employee       User             @relation(fields: [employeeId], references: [id])
+  employee            User             @relation(fields: [employeeId], references: [id])
 }
 
 model PerformanceCard {
