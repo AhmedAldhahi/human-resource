@@ -862,42 +862,67 @@ export default function EmployeeHoursModal({
                      
                      <div className="relative z-10 bg-slate-950/50 px-8 py-6 rounded-2xl border border-white/5 w-full">
                        {(() => {
-                         let totalMinutes = 0;
-                         voaderaDailyReports.forEach(report => {
-                           if (report.activeTime) {
-                             let h = 0, m = 0;
-                             const hMatch = report.activeTime.match(/(\d+)h/);
-                             if (hMatch) h = parseInt(hMatch[1], 10);
-                             const mMatch = report.activeTime.match(/(\d+)m/);
-                             if (mMatch) m = parseInt(mMatch[1], 10);
-                             
-                             // Support for HH:MM format just in case it ever changes
-                             if (report.activeTime.includes(':')) {
-                               const parts = report.activeTime.split(':');
-                               if (parts.length >= 2) {
-                                 h = parseInt(parts[0], 10);
-                                 m = parseInt(parts[1], 10);
-                               }
-                             }
-                             
-                             totalMinutes += (h * 60) + m;
-                           }
-                         });
-                         const hrs = Math.floor(totalMinutes / 60);
-                         const mins = totalMinutes % 60;
-                         return (
-                           <div className="flex items-baseline justify-center gap-2">
-                             <span className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-400 drop-shadow-sm">
-                               {hrs}
-                             </span>
-                             <span className="text-2xl font-bold text-emerald-500/70">h</span>
-                             <span className="text-4xl font-extrabold text-slate-200 ml-2">
-                               {mins}
-                             </span>
-                             <span className="text-xl font-bold text-slate-500">m</span>
-                           </div>
-                         );
-                       })()}
+                          let totalSpanMinutes = 0;
+                          let totalActiveMinutes = 0;
+                          
+                          voaderaDailyReports.forEach(report => {
+                            // Sum Total Time
+                            if (report.totalTime) {
+                              let h = 0, m = 0;
+                              const hMatch = report.totalTime.match(/(\d+)h/);
+                              if (hMatch) h = parseInt(hMatch[1], 10);
+                              const mMatch = report.totalTime.match(/(\d+)m/);
+                              if (mMatch) m = parseInt(mMatch[1], 10);
+                              totalSpanMinutes += (h * 60) + m;
+                            }
+                            
+                            // Sum Active Time
+                            if (report.activeTime) {
+                              let h = 0, m = 0;
+                              const hMatch = report.activeTime.match(/(\d+)h/);
+                              if (hMatch) h = parseInt(hMatch[1], 10);
+                              const mMatch = report.activeTime.match(/(\d+)m/);
+                              if (mMatch) m = parseInt(mMatch[1], 10);
+                              totalActiveMinutes += (h * 60) + m;
+                            }
+                          });
+                          
+                          const spanHrs = Math.floor(totalSpanMinutes / 60);
+                          const spanMins = totalSpanMinutes % 60;
+                          
+                          const activeHrs = Math.floor(totalActiveMinutes / 60);
+                          const activeMins = totalActiveMinutes % 60;
+                          
+                          const idleMinutes = Math.max(0, totalSpanMinutes - totalActiveMinutes);
+                          const idleHrs = Math.floor(idleMinutes / 60);
+                          const idleMins = idleMinutes % 60;
+
+                          return (
+                            <div className="flex flex-col items-center">
+                              <div className="flex items-baseline justify-center gap-2">
+                                <span className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-indigo-400 to-purple-400 drop-shadow-sm">
+                                  {spanHrs}
+                                </span>
+                                <span className="text-2xl font-bold text-indigo-500/70">h</span>
+                                <span className="text-4xl font-extrabold text-slate-200 ml-2">
+                                  {spanMins}
+                                </span>
+                                <span className="text-xl font-bold text-slate-500">m</span>
+                              </div>
+                              
+                              <div className="flex justify-center gap-10 mt-8 w-full border-t border-white/10 pt-6">
+                                <div className="text-center">
+                                  <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Active Time</p>
+                                  <p className="text-2xl font-bold text-white">{activeHrs}h {activeMins}m</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-1">Idle Time</p>
+                                  <p className="text-2xl font-bold text-white">{idleHrs}h {idleMins}m</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                      </div>
                    </div>
                  </div>
