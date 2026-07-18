@@ -70,7 +70,14 @@ export default function EmployeeHoursModal({
         }
 
         if (matched) {
-          const reports = await voaderaApi.getDailyReport(matched.id);
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          
+          const startStr = startOfMonth.toISOString().split('T')[0];
+          const endStr = endOfMonth.toISOString().split('T')[0];
+
+          const reports = await voaderaApi.getDailyReport(matched.id, startStr, endStr);
           setVoaderaDailyReports(reports);
         } else {
           setVoaderaError('No matching Tracker account found. Please link Windows Username in profile.');
@@ -330,10 +337,20 @@ export default function EmployeeHoursModal({
         
         let voaderaMins = 0;
         if (voadera?.activeTime) {
-           const parts = voadera.activeTime.split(':');
-           if (parts.length >= 2) {
-              voaderaMins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+           let h = 0, m = 0;
+           const hMatch = voadera.activeTime.match(/(\d+)h/);
+           if (hMatch) h = parseInt(hMatch[1], 10);
+           const mMatch = voadera.activeTime.match(/(\d+)m/);
+           if (mMatch) m = parseInt(mMatch[1], 10);
+           
+           if (voadera.activeTime.includes(':')) {
+              const parts = voadera.activeTime.split(':');
+              if (parts.length >= 2) {
+                 h = parseInt(parts[0], 10);
+                 m = parseInt(parts[1], 10);
+              }
            }
+           voaderaMins = (h * 60) + m;
         }
         
         const diffMins = hrms ? voaderaMins - hrms.totalMins : 0;
@@ -813,43 +830,76 @@ export default function EmployeeHoursModal({
         )}
 
         {activeTab === 'SERVER_HOURS' && (
-           <div className="p-6 overflow-y-auto flex-1 flex flex-col">
+           <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center">
               {voaderaError ? (
-                 <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
+                 <div className="glass-card p-10 text-center border border-white/5 mx-auto w-full max-w-md">
                    <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
                  </div>
               ) : voaderaLoading ? (
                  <div className="flex justify-center py-20">
                    <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
                  </div>
-              ) : voaderaDailyReports.length === 0 ? (
-                 <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
-                   <p className="text-slate-400 text-base">No tracker data available for this employee.</p>
-                 </div>
               ) : (
-                 <div className="glass-card overflow-hidden border border-white/10 shadow-inner">
-                   <table className="w-full text-sm">
-                     <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 shadow-sm border-b border-white/10">
-                       <tr>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Total Span Time</th>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-emerald-400 uppercase tracking-wider">Active Time</th>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-amber-400 uppercase tracking-wider">Idle Time</th>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-indigo-300 uppercase tracking-wider">Longest Idle Session</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-white/5">
-                       {voaderaDailyReports.map((report) => (
-                         <tr key={report.date} className="hover:bg-white/5 transition-colors duration-150">
-                           <td className="px-6 py-4 text-white font-bold">{report.date}</td>
-                           <td className="px-6 py-4 text-slate-300 font-mono">{report.totalTime}</td>
-                           <td className="px-6 py-4 text-emerald-400 font-bold">{report.activeTime}</td>
-                           <td className="px-6 py-4 text-amber-400 font-medium">{report.idleTime}</td>
-                           <td className="px-6 py-4 text-indigo-300 font-medium">{report.longestIdle}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
+                 <div className="w-full max-w-lg">
+                   <div className="glass-card p-8 border border-white/10 shadow-2xl rounded-3xl flex flex-col items-center text-center relative overflow-hidden">
+                     {/* Background Glow */}
+                     <div className="absolute inset-0 bg-emerald-500/5" />
+                     <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/20 blur-[80px] rounded-full" />
+                     <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-cyan-500/20 blur-[80px] rounded-full" />
+                     
+                     <div className="relative z-10 w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 shadow-inner">
+                       <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                       </svg>
+                     </div>
+                     
+                     <h3 className="text-lg font-bold text-slate-300 uppercase tracking-widest mb-2 relative z-10">
+                       {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                     </h3>
+                     <p className="text-sm font-medium text-slate-400 mb-6 relative z-10">
+                       Total tracked hours for the current month
+                     </p>
+                     
+                     <div className="relative z-10 bg-slate-950/50 px-8 py-6 rounded-2xl border border-white/5 w-full">
+                       {(() => {
+                         let totalMinutes = 0;
+                         voaderaDailyReports.forEach(report => {
+                           if (report.activeTime) {
+                             let h = 0, m = 0;
+                             const hMatch = report.activeTime.match(/(\d+)h/);
+                             if (hMatch) h = parseInt(hMatch[1], 10);
+                             const mMatch = report.activeTime.match(/(\d+)m/);
+                             if (mMatch) m = parseInt(mMatch[1], 10);
+                             
+                             // Support for HH:MM format just in case it ever changes
+                             if (report.activeTime.includes(':')) {
+                               const parts = report.activeTime.split(':');
+                               if (parts.length >= 2) {
+                                 h = parseInt(parts[0], 10);
+                                 m = parseInt(parts[1], 10);
+                               }
+                             }
+                             
+                             totalMinutes += (h * 60) + m;
+                           }
+                         });
+                         const hrs = Math.floor(totalMinutes / 60);
+                         const mins = totalMinutes % 60;
+                         return (
+                           <div className="flex items-baseline justify-center gap-2">
+                             <span className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-emerald-400 to-cyan-400 drop-shadow-sm">
+                               {hrs}
+                             </span>
+                             <span className="text-2xl font-bold text-emerald-500/70">h</span>
+                             <span className="text-4xl font-extrabold text-slate-200 ml-2">
+                               {mins}
+                             </span>
+                             <span className="text-xl font-bold text-slate-500">m</span>
+                           </div>
+                         );
+                       })()}
+                     </div>
+                   </div>
                  </div>
               )}
            </div>
