@@ -80,7 +80,8 @@ export class VoaderaService {
     if (end) query.append('end', end);
     const qs = query.toString() ? `?${query.toString()}` : '';
 
-    return this.request<VoaderaSessionDto[]>('GET', `/employees/${voaderaId}/sessions${qs}`);
+    const response = await this.request<any>('GET', `/employees/${voaderaId}/sessions${qs}`);
+    return Array.isArray(response) ? response : (response?.data || []);
   }
 
   async getDailyReport(voaderaId: string, start?: string, end?: string): Promise<VoaderaDailyReportDto[]> {
@@ -89,6 +90,8 @@ export class VoaderaService {
     if (end) query.append('end', end);
     const qs = query.toString() ? `?${query.toString()}` : '';
 
-    return this.request<VoaderaDailyReportDto[]>('GET', `/employees/${voaderaId}/daily-report${qs}`);
+    const response = await this.request<any>('GET', `/employees/${voaderaId}/daily-report${qs}`);
+    // Handle { status: 'success', data: [...] } format or direct array
+    return Array.isArray(response) ? response : (response?.data || []);
   }
 }
