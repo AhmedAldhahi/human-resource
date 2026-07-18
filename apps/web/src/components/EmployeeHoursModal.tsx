@@ -396,22 +396,22 @@ export default function EmployeeHoursModal({
         </div>
 
         {/* Tab Bar */}
-        <div className="flex bg-slate-900/80 border-b border-white/10 px-6 pt-4 gap-2 overflow-x-auto">
+        <div className="flex bg-slate-900/80 border-b border-white/10 px-6 pt-4 gap-2 overflow-x-auto scrollbar-hide">
           <button 
             onClick={() => setActiveTab('CLOCK_IN')}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'CLOCK_IN' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`relative -bottom-[1px] px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'CLOCK_IN' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 rounded-t-lg z-10' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             📋 Clock-In History
           </button>
           <button 
             onClick={() => setActiveTab('SERVER_HOURS')}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'SERVER_HOURS' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`relative -bottom-[1px] px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'SERVER_HOURS' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10 rounded-t-lg z-10' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             🖥️ Tracker Server Hours
           </button>
           <button 
             onClick={() => setActiveTab('COMPARE')}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'COMPARE' ? 'border-purple-500 text-purple-400 bg-purple-500/10 rounded-t-lg' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
+            className={`relative -bottom-[1px] px-5 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'COMPARE' ? 'border-purple-500 text-purple-400 bg-purple-500/10 rounded-t-lg z-10' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             ⚖️ Compare Daily
           </button>
@@ -906,7 +906,7 @@ export default function EmployeeHoursModal({
         )}
 
         {activeTab === 'COMPARE' && (
-           <div className="p-6 overflow-y-auto flex-1 flex flex-col">
+           <div className="p-6 overflow-y-auto flex-1">
               {voaderaError ? (
                  <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
                    <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
