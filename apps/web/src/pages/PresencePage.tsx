@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState, useMemo } from 'react';
 import { presenceApi } from '../api/client';
 import { PresenceStatus, Role } from '@hrms/shared';
@@ -85,7 +86,7 @@ export default function PresencePage() {
     fetchData();
 
     // Setup Socket.io client for real-time updates
-    const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const envUrl = import.meta.env.VITE_API_URL || getSocketUrl('');
     const socketBase = envUrl.replace(/\/api\/?$/, '');
     let socket: Socket | null = null;
 
@@ -212,7 +213,7 @@ export default function PresencePage() {
               <div className="relative">
                 {myRecord.photoUrl ? (
                   <img
-                    src={`http://localhost:3000${myRecord.photoUrl}`}
+                    src={getAssetUrl(myRecord.photoUrl)}
                     alt={myRecord.name}
                     className="w-14 h-14 rounded-full object-cover border-2 border-indigo-400 shadow-md"
                   />
@@ -514,7 +515,7 @@ export default function PresencePage() {
                   <div className="relative flex-shrink-0">
                     {emp.photoUrl ? (
                       <img
-                        src={`http://localhost:3000${emp.photoUrl}`}
+                        src={getAssetUrl(emp.photoUrl)}
                         alt={emp.name}
                         className="w-12 h-12 rounded-full object-cover border border-white/20 shadow-sm"
                       />
@@ -647,7 +648,7 @@ export default function PresencePage() {
                       <div className="relative flex-shrink-0">
                         {emp.photoUrl ? (
                           <img
-                            src={`http://localhost:3000${emp.photoUrl}`}
+                            src={getAssetUrl(emp.photoUrl)}
                             alt={emp.name}
                             className="w-8 h-8 rounded-full object-cover border border-white/20"
                           />

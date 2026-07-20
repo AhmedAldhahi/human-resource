@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -44,5 +45,12 @@ export class CardsController {
   @Roles(Role.ADMIN, Role.HR)
   async getAllCards(): Promise<CardResponseDto[]> {
     return this.cardsService.getAllCards();
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async deleteCard(@Param('id') id: string): Promise<{ success: boolean }> {
+    return this.cardsService.deleteCard(id);
   }
 }

@@ -51,6 +51,11 @@ enum AbsenceStatus {
   REJECTED
 }
 
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+}
+
 model User {
   id              String            @id @default(uuid())
   email           String            @unique
@@ -73,6 +78,8 @@ model User {
   bio             String?
   customStatus    String?
   customEmoji     String?
+  transportationAllowance Float @default(0)
+  recurringBonus          Float @default(0)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -80,6 +87,9 @@ model User {
   receivedCards   PerformanceCard[] @relation("ReceivedCards")
   issuedCards     PerformanceCard[] @relation("IssuedCards")
   absenceRecords  AbsenceRecord[]
+  participations  ConversationParticipant[]
+  sentMessages    Message[]
+  payrollRecords  PayrollRecord[]
 }
 
 model Attendance {
@@ -126,3 +136,60 @@ model AbsenceRecord {
   user        User          @relation(fields: [userId], references: [id])
 }
 
+model Conversation {
+  id            String                    @id @default(uuid())
+  title         String?
+  isGroup       Boolean                   @default(false)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  participants  ConversationParticipant[]
+  messages      Message[]
+}
+
+model ConversationParticipant {
+  id               String       @id @default(uuid())
+  conversationId   String
+  userId           String
+  joinedAt         DateTime     @default(now())
+  lastReadAt       DateTime?
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model PayrollRecord {
+  id                      String        @id @default(uuid())
+  userId                  String
+  month                   String        // Format: YYYY-MM
+  baseWage                Float
+  transportationAllowance Float
+  recurringBonus          Float
+  approvedHours           Float
+  transportationDeductions Float
+  bonusAmount             Float
+  bonusNotes              String?
+  deductionAmount         Float
+  deductionNotes          String?
+  cardPointsReference     Int
+  finalPayout             Float
+  status                  PayrollStatus @default(FINALIZED)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  user                    User          @relation(fields: [userId], references: [id])
+}

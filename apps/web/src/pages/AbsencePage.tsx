@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { absenceApi, usersApi } from '../api/client';
 import { AbsenceStatus, AbsenceType, Role, EmployeeType } from '@hrms/shared';
@@ -424,7 +425,7 @@ export default function AbsencePage() {
                       </div>
                       {record.documentUrl && (
                         <a
-                          href={`http://localhost:3000${record.documentUrl}`}
+                          href={getAssetUrl(record.documentUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-bold mt-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20"

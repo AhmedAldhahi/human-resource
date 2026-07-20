@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   IssueCardDto,
@@ -104,5 +104,14 @@ export class CardsService {
       employeeName: card.employee.name,
       issuerName: card.issuer.name,
     }));
+  }
+
+  async deleteCard(id: string): Promise<{ success: boolean }> {
+    const card = await this.prisma.performanceCard.findUnique({ where: { id } });
+    if (!card) {
+      throw new NotFoundException('Card not found');
+    }
+    await this.prisma.performanceCard.delete({ where: { id } });
+    return { success: true };
   }
 }

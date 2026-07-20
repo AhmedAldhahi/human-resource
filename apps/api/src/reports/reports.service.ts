@@ -95,6 +95,7 @@ export class ReportsService {
     const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
 
     const users = await this.prisma.user.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
     });
 

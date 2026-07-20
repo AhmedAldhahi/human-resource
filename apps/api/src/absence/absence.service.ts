@@ -237,7 +237,9 @@ export class AbsenceService {
       return { processed: 0, created: 0 };
     }
 
-    const users = await this.prisma.user.findMany();
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true },
+    });
     let created = 0;
 
     for (const user of users) {

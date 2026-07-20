@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import type { UserResponseDto, OnlineStatusRecordDto } from '@hrms/shared';
 import { Role, EmployeeType, PresenceStatus } from '@hrms/shared';
@@ -199,7 +200,7 @@ export default function EmployeesPage() {
                         <div className="relative shrink-0">
                           {emp.photoUrl ? (
                             <img
-                              src={`http://localhost:3000${emp.photoUrl}`}
+                              src={getAssetUrl(emp.photoUrl)}
                               alt={emp.name}
                               className="w-10 h-10 rounded-xl object-cover border border-emerald-500/40 shadow-md"
                             />
@@ -257,8 +258,8 @@ export default function EmployeesPage() {
                         </span>
                         <span className="font-bold text-emerald-400 text-xs">
                           {emp.employeeType === EmployeeType.FIXED
-                            ? `$${emp.monthlySalary ?? 0} / mo`
-                            : `$${(emp.hourlyWage ?? 0).toFixed(2)} / hr`}
+                            ? `${emp.monthlySalary ?? 0} JOD / mo`
+                            : `${(emp.hourlyWage ?? 0).toFixed(2)} JOD / hr`}
                         </span>
                       </div>
                     </td>

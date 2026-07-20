@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import axios from 'axios';
 import type {
   LoginDto,
@@ -25,12 +26,29 @@ import type {
   VoaderaEmployeeDto,
   VoaderaSessionDto,
   VoaderaDailyReportDto,
+  DraftPayrollDto,
+  SavePayrollDto,
+  PayrollRecordDto,
 } from '@hrms/shared';
 
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (!envUrl) return 'http://localhost:3000/api';
   return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
+};
+
+export const getAssetUrl = (path: string | null | undefined) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const base = envUrl.replace(/\/api\/?$/, '');
+  return `${base}${path}`;
+};
+
+export const getSocketUrl = (namespace: string = '') => {
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const base = envUrl.replace(/\/api\/?$/, '');
+  return `${base}${namespace}`;
 };
 
 const apiClient = axios.create({
@@ -192,6 +210,11 @@ export const cardsApi = {
     const { data } = await apiClient.get<CardResponseDto[]>('/cards');
     return data;
   },
+
+  delete: async (id: string): Promise<{ success: boolean }> => {
+    const { data } = await apiClient.delete<{ success: boolean }>(`/cards/${id}`);
+    return data;
+  },
 };
 
 // ── Absence ─────────────────────────────────────────────────────────────────
@@ -293,6 +316,25 @@ export const voaderaApi = {
     if (start) url += `start=${start}&`;
     if (end) url += `end=${end}`;
     const { data } = await apiClient.get<VoaderaDailyReportDto[]>(url);
+    return data;
+  },
+};
+
+// ── Payroll ─────────────────────────────────────────────────────────────────
+export const payrollApi = {
+  getDraft: async (month: string): Promise<DraftPayrollDto[]> => {
+    const { data } = await apiClient.get<DraftPayrollDto[]>(`/payroll/draft?month=${month}`);
+    return data;
+  },
+
+  save: async (dto: SavePayrollDto): Promise<PayrollRecordDto> => {
+    const { data } = await apiClient.post<PayrollRecordDto>('/payroll/save', dto);
+    return data;
+  },
+
+  getHistory: async (month?: string): Promise<(PayrollRecordDto & { userName: string; email: string })[]> => {
+    const query = month ? `?month=${month}` : '';
+    const { data } = await apiClient.get<(PayrollRecordDto & { userName: string; email: string })[]>(`/payroll/history${query}`);
     return data;
   },
 };

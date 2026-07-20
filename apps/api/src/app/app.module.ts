@@ -11,6 +11,9 @@ import { AbsenceModule } from '../absence/absence.module';
 import { ReportsModule } from '../reports/reports.module';
 import { PresenceModule } from '../presence/presence.module';
 import { VoaderaModule } from '../voadera/voadera.module';
+import { ChatModule } from '../chat/chat.module';
+import { PayrollModule } from '../payroll/payroll.module';
+import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
   imports: [
@@ -21,6 +24,7 @@ import { VoaderaModule } from '../voadera/voadera.module';
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
+    SupabaseModule,
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -30,6 +34,8 @@ import { VoaderaModule } from '../voadera/voadera.module';
     ReportsModule,
     PresenceModule,
     VoaderaModule,
+    ChatModule,
+    PayrollModule,
   ],
 })
 export class AppModule {}

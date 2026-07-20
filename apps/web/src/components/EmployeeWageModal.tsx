@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { usersApi } from '../api/client';
 import { Role, EmployeeType, UserResponseDto } from '@hrms/shared';
@@ -24,6 +25,8 @@ export default function EmployeeWageModal({
   // Form fields
   const [employeeType, setEmployeeType] = useState<EmployeeType>(EmployeeType.FIXED);
   const [monthlySalary, setMonthlySalary] = useState<number>(0);
+  const [transportationAllowance, setTransportationAllowance] = useState<number>(0);
+  const [recurringBonus, setRecurringBonus] = useState<number>(0);
   const [hourlyWage, setHourlyWage] = useState<number>(0);
   const [role, setRole] = useState<Role>(Role.EMPLOYEE);
   const [department, setDepartment] = useState<string>('');
@@ -43,6 +46,8 @@ export default function EmployeeWageModal({
       setUser(data);
       setEmployeeType(data.employeeType ?? EmployeeType.FIXED);
       setMonthlySalary(data.monthlySalary ?? 0);
+      setTransportationAllowance(data.transportationAllowance ?? 0);
+      setRecurringBonus(data.recurringBonus ?? 0);
       setHourlyWage(data.hourlyWage ?? 0);
       setRole(data.role);
       setDepartment(data.department || '');
@@ -89,6 +94,8 @@ export default function EmployeeWageModal({
           employeeType,
           monthlySalary: Number(monthlySalary),
           hourlyWage: Number(hourlyWage),
+          transportationAllowance: Number(transportationAllowance),
+          recurringBonus: Number(recurringBonus),
         }),
         usersApi.updateProfile(employeeId, { tsUsername }),
       ]);
@@ -154,7 +161,7 @@ export default function EmployeeWageModal({
             <div className="relative">
               {user?.photoUrl ? (
                 <img
-                  src={`http://localhost:3000${user.photoUrl}`}
+                  src={getAssetUrl(user.photoUrl)}
                   alt={user.name}
                   className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shadow-lg"
                 />
@@ -293,17 +300,17 @@ export default function EmployeeWageModal({
               {employeeType === EmployeeType.FIXED ? (
                 <div>
                   <label className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider block mb-1.5">
-                    Official Monthly Salary ($ / month)
+                    Official Monthly Salary (JOD / month)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xl">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-sm">JOD</span>
                     <input
                       type="number"
                       step="any"
                       min="0"
                       value={monthlySalary}
                       onChange={(e) => setMonthlySalary(Number(e.target.value) || 0)}
-                      className="input-field pl-9 pr-16 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
+                      className="input-field pl-12 pr-16 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
                       placeholder="0.00"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">/ mo</span>
@@ -312,31 +319,49 @@ export default function EmployeeWageModal({
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
                       <span className="text-slate-400 block font-medium">Equiv. Hourly (160h)</span>
                       <span className="text-base font-extrabold text-emerald-300 mt-0.5 block">
-                        ${(monthlySalary / 160).toFixed(2)} / hr
+                        {(monthlySalary / 160).toFixed(2)} JOD / hr
                       </span>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
                       <span className="text-slate-400 block font-medium">Annualized Salary</span>
                       <span className="text-base font-extrabold text-white mt-0.5 block">
-                        ${projectedAnnualFromMonthly.toFixed(2)}
+                        {projectedAnnualFromMonthly.toFixed(2)} JOD
                       </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-emerald-500/20">
+                    <label className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider block mb-1.5">
+                      Transportation Allowance (JOD / month)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-sm">JOD</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={transportationAllowance}
+                        onChange={(e) => setTransportationAllowance(Number(e.target.value) || 0)}
+                        className="input-field pl-12 pr-16 py-3 text-xl font-bold text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
+                        placeholder="0.00"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">/ mo</span>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div>
                   <label className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider block mb-1.5">
-                    Official Hourly Wage ($ / hr)
+                    Official Hourly Wage (JOD / hr)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xl">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-sm">JOD</span>
                     <input
                       type="number"
                       step="any"
                       min="0"
                       value={hourlyWage}
                       onChange={(e) => setHourlyWage(Number(e.target.value) || 0)}
-                      className="input-field pl-9 pr-14 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
+                      className="input-field pl-12 pr-14 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
                       placeholder="0.00"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">/ hr</span>
@@ -345,18 +370,38 @@ export default function EmployeeWageModal({
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
                       <span className="text-slate-400 block font-medium">Projected Monthly (160h)</span>
                       <span className="text-base font-extrabold text-emerald-300 mt-0.5 block">
-                        ${projectedMonthlyFromHourly.toFixed(2)}
+                        {projectedMonthlyFromHourly.toFixed(2)} JOD
                       </span>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
                       <span className="text-slate-400 block font-medium">Projected Annual (1,920h)</span>
                       <span className="text-base font-extrabold text-white mt-0.5 block">
-                        ${(projectedMonthlyFromHourly * 12).toFixed(2)}
+                        {(projectedMonthlyFromHourly * 12).toFixed(2)} JOD
                       </span>
                     </div>
                   </div>
                 </div>
               )}
+
+              <div className="mt-4 pt-4 border-t border-indigo-500/20">
+                <label className="text-xs font-extrabold text-indigo-400 uppercase tracking-wider block mb-1.5">
+                  Permanent Recurring Bonus (JOD / month)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 font-bold text-sm">JOD</span>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={recurringBonus}
+                    onChange={(e) => setRecurringBonus(Number(e.target.value) || 0)}
+                    className="input-field pl-12 pr-16 py-3 text-xl font-bold text-white bg-slate-900/90 border-indigo-500/40 focus:border-indigo-400"
+                    placeholder="0.00"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">/ mo</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">This bonus will be added automatically to the final calculated wage every month.</p>
+              </div>
             </div>
 
             {/* Role & Department */}

@@ -41,7 +41,7 @@ export class AttendanceController {
   @UseGuards(JwtAuthGuard)
   async clockOut(
     @Request() req: { user: { userId: string; email: string; role: Role } },
-    @Body() clockOutDto?: ClockOutDto,
+    @Body() clockOutDto: ClockOutDto,
   ): Promise<AttendanceResponseDto> {
     return this.attendanceService.clockOut(req.user.userId, clockOutDto);
   }

@@ -32,6 +32,22 @@ export default function AllCardsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<CardType | 'ALL'>('ALL');
   const [monthFilter, setMonthFilter] = useState<string>('ALL');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      await cardsApi.delete(id);
+      setCards((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error('Failed to delete card', err);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     cardsApi
@@ -202,6 +218,7 @@ export default function AllCardsPage() {
                   <th className="text-left px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Reason</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Issued By</th>
                   <th className="text-left px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                  <th className="text-right px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -223,6 +240,18 @@ export default function AllCardsPage() {
                       <td className="px-6 py-4 text-slate-400 whitespace-nowrap">{card.issuerName || card.issuerId}</td>
                       <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
                         {new Date(card.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => handleDelete(card.id)}
+                          disabled={deletingId === card.id}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-1.5 rounded transition-colors disabled:opacity-50"
+                          title="Delete Card"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -266,6 +295,7 @@ export default function AllCardsPage() {
                         <th className="text-left px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Reason</th>
                         <th className="text-left px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Issued By</th>
                         <th className="text-left px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                        <th className="text-right px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -287,6 +317,18 @@ export default function AllCardsPage() {
                             <td className="px-6 py-4 text-slate-400 whitespace-nowrap">{card.issuerName || card.issuerId}</td>
                             <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
                               {new Date(card.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <button
+                                onClick={() => handleDelete(card.id)}
+                                disabled={deletingId === card.id}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10 p-1.5 rounded transition-colors disabled:opacity-50"
+                                title="Delete Card"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
                             </td>
                           </tr>
                         );

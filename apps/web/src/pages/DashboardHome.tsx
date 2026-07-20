@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { attendanceApi, presenceApi } from '../api/client';
@@ -182,7 +183,7 @@ export default function DashboardHome() {
                 >
                   {tm.photoUrl ? (
                     <img
-                      src={`http://localhost:3000${tm.photoUrl}`}
+                      src={getAssetUrl(tm.photoUrl)}
                       alt={tm.name}
                       className="h-full w-full object-cover"
                     />

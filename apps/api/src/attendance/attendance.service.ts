@@ -57,7 +57,7 @@ export class AttendanceService {
     let latePenalty = false;
     let penaltyMinutes = 0;
 
-    if (now > workStart) {
+    if (workLocation === WorkLocation.OFFICE && now > workStart) {
       latePenalty = true;
       penaltyMinutes = Math.floor(
         (now.getTime() - workStart.getTime()) / (1000 * 60),
@@ -82,8 +82,14 @@ export class AttendanceService {
 
   async clockOut(
     employeeId: string,
-    dto?: ClockOutDto,
+    dto: ClockOutDto,
   ): Promise<AttendanceResponseDto> {
+    if (dto.completedTasksCount === undefined || dto.completedTasksCount === null || !dto.clockOutNote || !dto.clockOutNote.trim()) {
+      throw new BadRequestException(
+        'You must provide both the completed tasks count and a clock out note.',
+      );
+    }
+
     const openAttendance = await this.prisma.attendance.findFirst({
       where: {
         employeeId,
@@ -103,8 +109,8 @@ export class AttendanceService {
       data: {
         clockOutTime: new Date(),
         status: AttendanceStatus.CLOCKED_OUT,
-        ...(dto?.completedTasksCount !== undefined ? { completedTasksCount: dto.completedTasksCount } : {}),
-        ...(dto?.clockOutNote !== undefined ? { clockOutNote: dto.clockOutNote } : {}),
+        completedTasksCount: dto.completedTasksCount,
+        clockOutNote: dto.clockOutNote,
       },
     });
 

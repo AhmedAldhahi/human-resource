@@ -16,8 +16,8 @@ export class PresenceService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getLivePresence(): Promise<OnlineStatusRecordDto[]> {
-    // Get all users
     const users = await this.prisma.user.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
     });
 

@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { attendanceApi } from '../api/client';
 import { AttendanceStatus, WorkLocation } from '@hrms/shared';
-import type { AttendanceResponseDto } from '@hrms/shared';
+import { AttendanceResponseDto } from '@hrms/shared';
+import { useAuth } from '../context/AuthContext';
+import EmployeeHoursModal from '../components/EmployeeHoursModal';
 
 const MIN_CHARS = 15;
 
 export default function AttendancePage() {
+  const { user } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [records, setRecords] = useState<AttendanceResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState('');
@@ -61,6 +65,10 @@ export default function AttendancePage() {
   };
 
   const handleClockOut = async () => {
+    if (!completedTasksCount || !clockOutNote.trim()) {
+      setError('You must fill out the tasks output and explanation before clocking out.');
+      return;
+    }
     setError('');
     setActionLoading(true);
     try {
@@ -219,8 +227,8 @@ export default function AttendancePage() {
 
             <button
               onClick={handleClockOut}
-              disabled={actionLoading}
-              className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all duration-200 disabled:opacity-50"
+              disabled={actionLoading || !completedTasksCount || !clockOutNote.trim()}
+              className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -328,10 +336,21 @@ export default function AttendancePage() {
           <h2 className="text-lg font-semibold text-white">
             Attendance & Hours History
           </h2>
-          <div className="flex items-center gap-4 text-xs bg-white/[0.03] border border-white/10 px-4 py-2 rounded-xl">
-            <span className="text-slate-400">Total Worked: <strong className="text-emerald-400 font-bold text-sm">{totalHoursWorked}h {totalRemainingMins}m</strong></span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Total Days: <strong className="text-white font-bold text-sm">{records.length}</strong></span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-purple-600/80 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shadow-lg shadow-purple-500/20 border border-purple-500/30"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Compare with Tracker
+            </button>
+            <div className="flex items-center gap-4 text-xs bg-white/[0.03] border border-white/10 px-4 py-2 rounded-xl">
+              <span className="text-slate-400">Total Worked: <strong className="text-emerald-400 font-bold text-sm">{totalHoursWorked}h {totalRemainingMins}m</strong></span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-400">Total Days: <strong className="text-white font-bold text-sm">{records.length}</strong></span>
+            </div>
           </div>
         </div>
 
@@ -462,6 +481,14 @@ export default function AttendancePage() {
           </div>
         )}
       </div>
+
+      <EmployeeHoursModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        employeeId={user?.id}
+        employeeName={user?.name}
+        readOnly={true}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usersApi, attendanceApi } from '../api/client';
@@ -135,6 +136,8 @@ export default function ProfilePage() {
   // Compute Base Earned Pay
   const hourlyWage = user.hourlyWage ?? 0;
   const monthlySalary = user.monthlySalary ?? 0;
+  const transportationAllowance = user.transportationAllowance ?? 0;
+  const recurringBonus = user.recurringBonus ?? 0;
   const isFixed = user.employeeType === EmployeeType.FIXED;
 
   const baseEarnedPay = isFixed
@@ -143,12 +146,12 @@ export default function ProfilePage() {
 
   // Performance points impact ($1 per point bonus/deduction illustration)
   const pointsImpact = user.netCardPoints * 1;
-  const totalEarnedCompensation = baseEarnedPay + pointsImpact;
+  const totalEarnedCompensation = baseEarnedPay + transportationAllowance + recurringBonus + pointsImpact;
 
   // Simulated earnings
   const simulatedEarnings = isFixed
-    ? (simulatedHours / 160) * monthlySalary + pointsImpact
-    : simulatedHours * hourlyWage + pointsImpact;
+    ? (simulatedHours / 160) * monthlySalary + transportationAllowance + recurringBonus + pointsImpact
+    : simulatedHours * hourlyWage + recurringBonus + pointsImpact;
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
@@ -200,7 +203,7 @@ export default function ProfilePage() {
               <div className="relative mb-4">
                 {user.photoUrl ? (
                   <img
-                    src={`http://localhost:3000${user.photoUrl}`}
+                    src={getAssetUrl(user.photoUrl)}
                     alt={user.name}
                     className="w-28 h-28 rounded-3xl object-cover border-4 border-indigo-500 shadow-xl ring-4 ring-white/10"
                   />
@@ -358,11 +361,11 @@ export default function ProfilePage() {
                 <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1">
                   {isFixed ? (
                     <>
-                      ${monthlySalary.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">/ month</span>
+                      {monthlySalary.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">JOD / month</span>
                     </>
                   ) : (
                     <>
-                      ${hourlyWage.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">/ hour</span>
+                      {hourlyWage.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">JOD / hour</span>
                     </>
                   )}
                 </h2>
@@ -378,7 +381,7 @@ export default function ProfilePage() {
                 <p className={`text-3xl font-black mt-1 ${user.netCardPoints > 0 ? 'text-emerald-400' : user.netCardPoints < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                   {user.netCardPoints > 0 ? `+${user.netCardPoints}` : user.netCardPoints}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-1">Impact: ${pointsImpact >= 0 ? `+${pointsImpact.toFixed(2)}` : pointsImpact.toFixed(2)}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Impact: {pointsImpact >= 0 ? `+${pointsImpact.toFixed(2)} JOD` : `${pointsImpact.toFixed(2)} JOD`}</p>
               </div>
             </div>
           </div>
@@ -390,8 +393,8 @@ export default function ProfilePage() {
               Real-Time Earned Compensation Breakdown
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
+            <div className="flex flex-wrap gap-4 mb-8">
+              <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
                 <p className="text-xs font-bold text-slate-400 uppercase">Total Worked Hours</p>
                 <p className="text-2xl font-extrabold text-white">
                   {totalHoursWorked}h <span className="text-base font-normal text-slate-400">{remainingMinutes}m</span>
@@ -399,20 +402,40 @@ export default function ProfilePage() {
                 <p className="text-[11px] text-slate-500">Across {activeShifts} completed shifts</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
+              <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
                 <p className="text-xs font-bold text-slate-400 uppercase">Base Earned Pay</p>
                 <p className="text-2xl font-extrabold text-indigo-400">
-                  ${baseEarnedPay.toFixed(2)}
+                  {baseEarnedPay.toFixed(2)} JOD
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  {isFixed ? `(Pro-rated for ${exactHoursDecimal.toFixed(1)}h)` : `(${exactHoursDecimal.toFixed(1)}h × $${hourlyWage.toFixed(2)})`}
+                  {isFixed ? `(Pro-rated for ${exactHoursDecimal.toFixed(1)}h)` : `(${exactHoursDecimal.toFixed(1)}h × ${hourlyWage.toFixed(2)} JOD)`}
                 </p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/30 space-y-1 shadow-inner">
+              {transportationAllowance > 0 && (
+                <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Transportation</p>
+                  <p className="text-2xl font-extrabold text-teal-400">
+                    +{transportationAllowance.toFixed(2)} JOD
+                  </p>
+                  <p className="text-[11px] text-slate-500">Fixed monthly allowance</p>
+                </div>
+              )}
+
+              {recurringBonus > 0 && (
+                <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase">Recurring Bonus</p>
+                  <p className="text-2xl font-extrabold text-pink-400">
+                    +{recurringBonus.toFixed(2)} JOD
+                  </p>
+                  <p className="text-[11px] text-slate-500">Permanent monthly addition</p>
+                </div>
+              )}
+
+              <div className="flex-[2] min-w-[250px] p-5 rounded-2xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/30 space-y-1 shadow-inner">
                 <p className="text-xs font-bold text-indigo-300 uppercase">Net Estimated Pay</p>
                 <p className="text-3xl font-black text-emerald-400">
-                  ${totalEarnedCompensation.toFixed(2)}
+                  {totalEarnedCompensation.toFixed(2)} JOD
                 </p>
                 <p className="text-[11px] text-indigo-300/80">Includes card point adjustments</p>
               </div>
@@ -444,12 +467,12 @@ export default function ProfilePage() {
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Simulated Monthly Earnings</p>
                   <p className="text-sm text-slate-300">
-                    If you work <strong className="text-white font-bold">{simulatedHours} hours</strong> ({isFixed ? `Fixed $${monthlySalary}/mo` : `Hourly $${hourlyWage.toFixed(2)}/hr`})
+                    If you work <strong className="text-white font-bold">{simulatedHours} hours</strong> ({isFixed ? `Fixed ${monthlySalary} JOD/mo` : `Hourly ${hourlyWage.toFixed(2)} JOD/hr`})
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-3xl font-black text-white tracking-tight">
-                    ${simulatedEarnings.toFixed(2)} <span className="text-xs font-semibold text-slate-400">USD</span>
+                    {simulatedEarnings.toFixed(2)} <span className="text-xs font-semibold text-slate-400">JOD</span>
                   </p>
                 </div>
               </div>

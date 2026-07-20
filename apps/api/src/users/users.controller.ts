@@ -15,10 +15,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
 import { UsersService } from './users.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -34,7 +35,10 @@ import {
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -136,19 +140,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const dir = './uploads/photos';
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-          }
-          cb(null, dir);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `photo-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     }),
   )
   async uploadPhoto(
@@ -168,7 +161,7 @@ export class UsersController {
       throw new BadRequestException('No photo file uploaded.');
     }
 
-    const photoUrl = `/uploads/photos/${file.filename}`;
+    const photoUrl = await this.supabaseService.uploadFile(file, 'photos');
     return this.usersService.updatePhoto(id, photoUrl);
   }
 

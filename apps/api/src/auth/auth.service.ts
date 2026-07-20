@@ -63,6 +63,8 @@ export class AuthService {
       earlyLeaveMinutesAccumulated: user.earlyLeaveMinutesAccumulated ?? 0,
       netCardPoints: currentMonthPoints,
       hourlyWage: user.hourlyWage ?? 0,
+      transportationAllowance: user.transportationAllowance ?? 0,
+      recurringBonus: user.recurringBonus ?? 0,
       phone: user.phone ?? null,
       department: user.department ?? null,
       bio: user.bio ?? null,

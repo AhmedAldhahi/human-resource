@@ -16,13 +16,17 @@ import AbsencePage from '../pages/AbsencePage';
 import ReportsPage from '../pages/ReportsPage';
 import PresencePage from '../pages/PresencePage';
 import { TrackerPage } from '../pages/TrackerPage';
+import ChatPage from '../pages/ChatPage';
+import PayrollManagementPage from '../pages/PayrollManagementPage';
 import { Role } from '@hrms/shared';
+import { ChatProvider } from '../context/ChatContext';
 
 export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <ChatProvider>
+          <Routes>
           {/* Public */}
           <Route path="/" element={<LoginPage />} />
 
@@ -41,6 +45,7 @@ export function App() {
             <Route path="attendance" element={<AttendancePage />} />
             <Route path="absence" element={<AbsencePage />} />
             <Route path="my-cards" element={<MyCardsPage />} />
+            <Route path="chat" element={<ChatPage />} />
 
             {/* HR & ADMIN only */}
             <Route
@@ -56,6 +61,14 @@ export function App() {
               element={
                 <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
                   <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll"
+              element={
+                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                  <PayrollManagementPage />
                 </ProtectedRoute>
               }
             />
@@ -92,11 +105,13 @@ export function App() {
               }
             />
           </Route>
-        </Routes>
+          </Routes>
+        </ChatProvider>
       </AuthProvider>
     </BrowserRouter>
   );
 }
 
 export default App;
+
 

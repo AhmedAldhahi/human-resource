@@ -11,10 +11,11 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
 import { AbsenceService } from './absence.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -27,25 +28,17 @@ import {
 
 @Controller('absence')
 export class AbsenceController {
-  constructor(private readonly absenceService: AbsenceService) {}
+  constructor(
+    private readonly absenceService: AbsenceService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   @Post('request')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('document', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const dir = './uploads/documents';
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-          }
-          cb(null, dir);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `doc-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     }),
   )
   async createRequest(
@@ -53,7 +46,7 @@ export class AbsenceController {
     @Body() dto: CreateAbsenceDto,
     @UploadedFile() file: any,
   ): Promise<AbsenceRecordResponseDto> {
-    const documentUrl = file ? `/uploads/documents/${file.filename}` : undefined;
+    const documentUrl = file ? await this.supabaseService.uploadFile(file, 'documents') : undefined;
     return this.absenceService.createRequest(req.user.userId, dto, documentUrl);
   }
 

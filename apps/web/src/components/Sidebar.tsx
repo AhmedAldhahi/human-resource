@@ -1,6 +1,8 @@
+import { getAssetUrl, getSocketUrl } from '../api/client';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { Role } from '@hrms/shared';
 
 /* ── Inline SVG Icons ──────────────────────────────────────────────────── */
@@ -70,6 +72,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
   ),
+  chat: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+    </svg>
+  ),
 };
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -77,6 +84,7 @@ interface NavItem {
   label: string;
   to: string;
   icon: React.ReactNode;
+  badge?: number;
 }
 
 /* ── Role badge colour ─────────────────────────────────────────────────── */
@@ -93,6 +101,7 @@ function roleBadgeClasses(role: Role): string {
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const { unreadTotal } = useChat();
 
   if (!user) return null;
 
@@ -100,6 +109,7 @@ export default function Sidebar() {
   const navItems: NavItem[] = [
     { label: 'Dashboard', to: '/dashboard', icon: icons.home },
     { label: 'Live Radar (Online)', to: '/dashboard/presence', icon: icons.radar },
+    { label: 'Messages', to: '/dashboard/chat', icon: icons.chat, badge: unreadTotal },
     { label: 'My Profile ($)', to: '/dashboard/profile', icon: icons.profile },
     { label: 'Attendance', to: '/dashboard/attendance', icon: icons.clock },
     { label: 'Absence & Leaves', to: '/dashboard/absence', icon: icons.calendar },
@@ -113,7 +123,8 @@ export default function Sidebar() {
     navItems.push(
       { label: 'Employees', to: '/dashboard/employees', icon: icons.users },
       { label: 'PC Tracker', to: '/dashboard/pc-tracker', icon: icons.monitor },
-      { label: 'Reports & Payroll', to: '/dashboard/reports', icon: icons.chart },
+      { label: 'Reports', to: '/dashboard/reports', icon: icons.chart },
+      { label: 'Payroll Processing', to: '/dashboard/payroll', icon: icons.card },
       { label: 'Issue Card', to: '/dashboard/issue-card', icon: icons.award },
       { label: 'All Cards', to: '/dashboard/all-cards', icon: icons.list }
     );
@@ -154,7 +165,12 @@ export default function Sidebar() {
               <span className="flex-shrink-0 transition-colors duration-200 group-hover:text-indigo-400">
                 {item.icon}
               </span>
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -166,7 +182,7 @@ export default function Sidebar() {
           <div className="flex items-center gap-3">
             {user.photoUrl ? (
               <img
-                src={`http://localhost:3000${user.photoUrl}`}
+                src={getAssetUrl(user.photoUrl)}
                 alt={user.name}
                 className="w-9 h-9 rounded-full object-cover border border-emerald-500 flex-shrink-0 shadow-md"
               />

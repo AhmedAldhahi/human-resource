@@ -8,6 +8,7 @@ interface EmployeeHoursModalProps {
   employeeId?: string;
   employeeName?: string;
   employeeRole?: Role;
+  readOnly?: boolean;
 }
 
 interface EditingRecordState {
@@ -20,6 +21,7 @@ interface EditingRecordState {
   status: AttendanceStatus;
   completedTasksCount: string | number;
   clockOutNote: string;
+  latePenalty: boolean;
 }
 
 export default function EmployeeHoursModal({
@@ -28,6 +30,7 @@ export default function EmployeeHoursModal({
   employeeId,
   employeeName,
   employeeRole,
+  readOnly = false,
 }: EmployeeHoursModalProps) {
   const [records, setRecords] = useState<AttendanceResponseDto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -195,6 +198,7 @@ export default function EmployeeHoursModal({
       status: rec.status,
       completedTasksCount: rec.completedTasksCount !== null && rec.completedTasksCount !== undefined ? rec.completedTasksCount : '',
       clockOutNote: rec.clockOutNote || '',
+      latePenalty: rec.latePenalty || false,
     });
   };
 
@@ -259,6 +263,7 @@ export default function EmployeeHoursModal({
         status: editForm.status,
         completedTasksCount: !isNaN(num as number) && num !== null ? num : null,
         clockOutNote: editForm.clockOutNote.trim() || null,
+        latePenalty: editForm.latePenalty,
       });
 
       setSuccessMsg('Attendance record updated successfully.');
@@ -584,7 +589,9 @@ export default function EmployeeHoursModal({
                       <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider min-w-[280px]">Task</th>
                       {/* Wider Status Column Header */}
                       <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider min-w-[180px] w-52">Status</th>
-                      <th className="text-right px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider min-w-[140px]">Actions</th>
+                      {!readOnly && (
+                        <th className="text-right px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider min-w-[140px]">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -711,6 +718,15 @@ export default function EmployeeHoursModal({
                                   <option value={AttendanceStatus.CLOCKED_IN}>Active (Clocked In)</option>
                                   <option value={AttendanceStatus.CLOCKED_OUT}>Completed</option>
                                 </select>
+                                <label className="flex items-center gap-2 text-xs font-bold text-red-400 mt-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={editForm.latePenalty}
+                                    onChange={(e) => setEditForm({ ...editForm, latePenalty: e.target.checked })}
+                                    className="rounded border-red-500/50 bg-slate-900 text-red-500 focus:ring-red-500"
+                                  />
+                                  Apply Late Penalty
+                                </label>
                               </div>
                             </td>
 
@@ -773,6 +789,13 @@ export default function EmployeeHoursModal({
                               )}
                               {durationStr}
                             </span>
+                            {record.latePenalty && (
+                              <div className="mt-1.5 flex items-center">
+                                <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                                  Late Penalty (-45m)
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 max-w-md">
                             <div className="space-y-1">
@@ -806,17 +829,19 @@ export default function EmployeeHoursModal({
                               {isActive ? 'Active (Clocked In)' : 'Completed'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => startEditing(record)}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all duration-200 shadow-sm"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                              Edit Record
-                            </button>
-                          </td>
+                          {!readOnly && (
+                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => startEditing(record)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all duration-200 shadow-sm"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Edit Record
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

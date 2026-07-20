@@ -62,13 +62,13 @@ export default function ReportsPage() {
       'Email',
       'Department',
       'Employee Type',
-      'Monthly Salary ($)',
-      'Hourly Wage ($)',
+      'Monthly Salary (JOD)',
+      'Hourly Wage (JOD)',
       'Total Hours Worked',
       'Late Penalty Minutes',
       'Unpaid Absence Days',
       'Net Card Points',
-      'Calculated Compensation ($)',
+      'Calculated Compensation (JOD)',
     ];
 
     const rows = payroll.map((item) => [
@@ -287,7 +287,7 @@ export default function ReportsPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white">Monthly Payroll & Compensation Summary</h3>
                   <p className="text-xs text-slate-400">
-                    Auto-calculated accounting for 45m office late penalties, unpaid absence deductions, worked hours, and net performance card points ($1/point).
+                    Auto-calculated accounting for 45m office late penalties, unpaid absence deductions, worked hours, and net performance card points (1 JOD/point).
                   </p>
                 </div>
                 <button
@@ -346,8 +346,8 @@ export default function ReportsPage() {
                             </span>
                             <span className="text-slate-300 text-xs">
                               {item.employeeType === EmployeeType.FIXED
-                                ? `$${item.monthlySalary}/mo`
-                                : `$${item.hourlyWage}/hr`}
+                                ? `${item.monthlySalary} JOD/mo`
+                                : `${item.hourlyWage} JOD/hr`}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-300">
@@ -379,12 +379,12 @@ export default function ReportsPage() {
                                 ? 'bg-red-500/20 text-red-400'
                                 : 'text-slate-400'
                             }`}>
-                              {item.netCardPoints > 0 ? `+${item.netCardPoints}` : item.netCardPoints} pts ($)
+                              {item.netCardPoints > 0 ? `+${item.netCardPoints}` : item.netCardPoints} pts (JOD)
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <span className="text-lg font-extrabold text-emerald-400 bg-emerald-500/10 px-3.5 py-1.5 rounded-xl border border-emerald-500/20">
-                              ${item.calculatedCompensation}
+                              {item.calculatedCompensation} JOD
                             </span>
                           </td>
                         </tr>

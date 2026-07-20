@@ -43,6 +43,11 @@ export enum AbsenceStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum PayrollStatus {
+  DRAFT = 'DRAFT',
+  FINALIZED = 'FINALIZED',
+}
+
 // ─── Card Point Values ──────────────────────────────────────────────────────
 
 export const CARD_POINT_VALUES: Record<CardType, number> = {
@@ -75,6 +80,8 @@ export interface CreateUserDto {
   employeeType?: EmployeeType;
   monthlySalary?: number;
   hourlyWage?: number;
+  transportationAllowance?: number;
+  recurringBonus?: number;
   phone?: string;
   department?: string;
   bio?: string;
@@ -95,6 +102,8 @@ export interface UserResponseDto {
   earlyLeaveMinutesAccumulated: number;
   netCardPoints: number;
   hourlyWage: number;
+  transportationAllowance: number;
+  recurringBonus: number;
   phone?: string | null;
   department?: string | null;
   bio?: string | null;
@@ -120,6 +129,8 @@ export interface UpdateProfileDto {
 
 export interface UpdateWageDto {
   hourlyWage?: number;
+  transportationAllowance?: number;
+  recurringBonus?: number;
   role?: Role;
   department?: string;
 }
@@ -128,6 +139,8 @@ export interface UpdateEmployeeTypeDto {
   employeeType: EmployeeType;
   monthlySalary?: number;
   hourlyWage?: number;
+  transportationAllowance?: number;
+  recurringBonus?: number;
 }
 
 // ─── Attendance DTOs ────────────────────────────────────────────────────────
@@ -185,6 +198,66 @@ export interface CardResponseDto {
   issuedAt: string;
   employeeName?: string;
   issuerName?: string;
+}
+
+// ─── Payroll DTOs ───────────────────────────────────────────────────────────
+
+export interface SavePayrollDto {
+  userId: string;
+  month: string; // YYYY-MM
+  baseWage: number;
+  transportationAllowance: number;
+  recurringBonus: number;
+  approvedHours: number;
+  transportationDeductions: number;
+  bonusAmount: number;
+  bonusNotes?: string | null;
+  deductionAmount: number;
+  deductionNotes?: string | null;
+  cardPointsReference: number;
+  finalPayout: number;
+  status?: PayrollStatus;
+}
+
+export interface PayrollRecordDto {
+  id: string;
+  userId: string;
+  month: string;
+  baseWage: number;
+  transportationAllowance: number;
+  recurringBonus: number;
+  approvedHours: number;
+  transportationDeductions: number;
+  bonusAmount: number;
+  bonusNotes: string | null;
+  deductionAmount: number;
+  deductionNotes: string | null;
+  cardPointsReference: number;
+  finalPayout: number;
+  status: PayrollStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DraftPayrollDto {
+  userId: string;
+  name: string;
+  email: string;
+  employeeType: EmployeeType;
+  monthlySalary: number;
+  hourlyWage: number;
+  transportationAllowance: number;
+  recurringBonus: number;
+  trackedHours: number;
+  transportationDeductions: number;
+  wfhDays: number;
+  cardPointsReference: number;
+  savedApprovedHours?: number;
+  savedBonusAmount?: number;
+  savedBonusNotes?: string;
+  savedDeductionAmount?: number;
+  savedDeductionNotes?: string;
+  savedStatus?: PayrollStatus;
 }
 
 // ─── Absence DTOs ───────────────────────────────────────────────────────────
