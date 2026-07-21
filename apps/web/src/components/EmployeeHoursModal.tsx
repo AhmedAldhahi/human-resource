@@ -77,8 +77,9 @@ export default function EmployeeHoursModal({
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           
-          const startStr = startOfMonth.toISOString().split('T')[0];
-          const endStr = endOfMonth.toISOString().split('T')[0];
+          const pad = (n: number) => n.toString().padStart(2, '0');
+          const startStr = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
+          const endStr = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
 
           const reports = await voaderaApi.getDailyReport(matched.id, startStr, endStr);
           setVoaderaDailyReports(reports);

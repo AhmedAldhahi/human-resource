@@ -3,21 +3,27 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
 import DashboardLayout from '../components/DashboardLayout';
-import LoginPage from '../pages/LoginPage';
-import DashboardHome from '../pages/DashboardHome';
-import AttendancePage from '../pages/AttendancePage';
-import ProfilePage from '../pages/ProfilePage';
-import EmployeesPage from '../pages/EmployeesPage';
-import MyCardsPage from '../pages/MyCardsPage';
-import CreateUserPage from '../pages/CreateUserPage';
-import AllCardsPage from '../pages/AllCardsPage';
-import IssueCardPage from '../pages/IssueCardPage';
-import AbsencePage from '../pages/AbsencePage';
-import ReportsPage from '../pages/ReportsPage';
-import PresencePage from '../pages/PresencePage';
-import { TrackerPage } from '../pages/TrackerPage';
-import ChatPage from '../pages/ChatPage';
-import PayrollManagementPage from '../pages/PayrollManagementPage';
+const LoginPage = React.lazy(() => import('../pages/LoginPage'));
+const DashboardHome = React.lazy(() => import('../pages/DashboardHome'));
+const AttendancePage = React.lazy(() => import('../pages/AttendancePage'));
+const ProfilePage = React.lazy(() => import('../pages/ProfilePage'));
+const EmployeesPage = React.lazy(() => import('../pages/EmployeesPage'));
+const MyCardsPage = React.lazy(() => import('../pages/MyCardsPage'));
+const CreateUserPage = React.lazy(() => import('../pages/CreateUserPage'));
+const AllCardsPage = React.lazy(() => import('../pages/AllCardsPage'));
+const IssueCardPage = React.lazy(() => import('../pages/IssueCardPage'));
+const AbsencePage = React.lazy(() => import('../pages/AbsencePage'));
+const ReportsPage = React.lazy(() => import('../pages/ReportsPage'));
+const PresencePage = React.lazy(() => import('../pages/PresencePage'));
+const TrackerPage = React.lazy(() => import('../pages/TrackerPage').then(m => ({ default: m.TrackerPage })));
+const ChatPage = React.lazy(() => import('../pages/ChatPage'));
+const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagementPage'));
+
+const PageLoader = () => (
+  <div className="flex h-screen items-center justify-center bg-slate-950">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+  </div>
+);
 import { Role } from '@hrms/shared';
 import { ChatProvider } from '../context/ChatContext';
 
@@ -26,7 +32,8 @@ export function App() {
     <BrowserRouter>
       <AuthProvider>
         <ChatProvider>
-          <Routes>
+          <React.Suspense fallback={<PageLoader />}>
+            <Routes>
           {/* Public */}
           <Route path="/" element={<LoginPage />} />
 
@@ -106,6 +113,7 @@ export function App() {
             />
           </Route>
           </Routes>
+          </React.Suspense>
         </ChatProvider>
       </AuthProvider>
     </BrowserRouter>
