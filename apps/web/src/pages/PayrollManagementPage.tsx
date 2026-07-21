@@ -34,6 +34,46 @@ export default function PayrollManagementPage() {
     fetchDrafts();
   }, [selectedMonth]);
 
+  const exportCsv = () => {
+    if (drafts.length === 0) return;
+    const headers = [
+      'Name', 'Email', 'Type', 'Monthly Salary', 'Hourly Wage', 
+      'Transp. Allowance', 'Recurring Bonus', 'Tracked Hours', 'WFH Days', 
+      'WFH Deductions', 'Points Ref', 'Approved Hrs', 'Bonus Amt', 
+      'Bonus Notes', 'Ded. Amt', 'Ded. Notes', 'Status'
+    ];
+    
+    const rows = drafts.map(d => [
+      `"${d.name}"`,
+      `"${d.email}"`,
+      d.employeeType,
+      d.monthlySalary,
+      d.hourlyWage,
+      d.transportationAllowance,
+      d.recurringBonus,
+      d.trackedHours,
+      d.wfhDays,
+      d.transportationDeductions,
+      d.cardPointsReference,
+      d.savedApprovedHours ?? '',
+      d.savedBonusAmount ?? '',
+      d.savedBonusNotes ? `"${d.savedBonusNotes.replace(/"/g, '""')}"` : '',
+      d.savedDeductionAmount ?? '',
+      d.savedDeductionNotes ? `"${d.savedDeductionNotes.replace(/"/g, '""')}"` : '',
+      d.savedStatus || 'PENDING'
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `payroll_${selectedMonth}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-fadeIn">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -42,6 +82,13 @@ export default function PayrollManagementPage() {
           <p className="text-slate-400 mt-1 text-sm">Review, edit, and finalize employee wages for the selected month.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={exportCsv}
+            disabled={drafts.length === 0}
+            className="gradient-btn px-4 py-2 text-sm font-bold shadow-md disabled:opacity-50"
+          >
+            Export CSV
+          </button>
           <input 
             type="month" 
             value={selectedMonth}
