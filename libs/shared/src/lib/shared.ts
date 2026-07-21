@@ -387,9 +387,9 @@ export interface PresenceStatsDto {
   offlineCount: number;
 }
 
-// ─── Voadera Tracker DTOs ───────────────────────────────────────────────────
+// ─── Tracker Tracker DTOs ───────────────────────────────────────────────────
 
-export interface VoaderaEmployeeDto {
+export interface TrackerEmployeeDto {
   id: string;
   windowsId: string;
   name: string;
@@ -401,10 +401,10 @@ export interface VoaderaEmployeeDto {
   inOfficeToday: boolean;
   idleLimit: number;
   forceLogoff: boolean;
-  securityAlerts: VoaderaSecurityAlertDto[];
+  securityAlerts: TrackerSecurityAlertDto[];
 }
 
-export interface VoaderaSessionDto {
+export interface TrackerSessionDto {
   id: string;
   employeeId: string;
   loginTime: string;
@@ -412,7 +412,7 @@ export interface VoaderaSessionDto {
   lastSeen: string;
 }
 
-export interface VoaderaDailyReportDto {
+export interface TrackerDailyReportDto {
   date: string;
   totalTime: string;
   activeTime: string;
@@ -420,7 +420,7 @@ export interface VoaderaDailyReportDto {
   longestIdle: string;
 }
 
-export interface VoaderaSecurityAlertDto {
+export interface TrackerSecurityAlertDto {
   id: string;
   tsUsername: string;
   alertType: string;

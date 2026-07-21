@@ -441,7 +441,7 @@ export default function EmployeeWageModal({
                   placeholder="e.g. jdoe, Administrator"
                   className="input-field py-2.5 text-sm bg-slate-900 border-white/10 font-medium w-full"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">Used to link Voadera Tracker hours.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Used to link Tracker Tracker hours.</p>
               </div>
             </div>
 

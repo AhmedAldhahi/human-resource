@@ -61,7 +61,7 @@ model User {
   email           String            @unique
   password        String
   name            String
-  tsUsername       String?           @unique  // Windows login name for Voadera Tracker link
+  tsUsername       String?           @unique  // Windows login name for Tracker link
   role            Role              @default(EMPLOYEE)
   isActive        Boolean           @default(true)
   employeeType    EmployeeType      @default(FIXED)

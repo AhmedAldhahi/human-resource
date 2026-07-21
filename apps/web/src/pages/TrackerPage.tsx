@@ -1,8 +1,8 @@
 import React from 'react';
 
 export const TrackerPage: React.FC = () => {
-  // Use environment variable if set, otherwise fallback to local Voadera Dashboard
-  const dashboardUrl = import.meta.env.VITE_VOADERA_DASHBOARD_URL || 'http://localhost:5174';
+  // Use environment variable if set, otherwise fallback to local Tracker Dashboard
+  const dashboardUrl = import.meta.env.VITE_TRACKER_DASHBOARD_URL || 'http://localhost:5174';
 
   return (
     <div className="space-y-6 flex flex-col h-full overflow-hidden">
@@ -15,7 +15,7 @@ export const TrackerPage: React.FC = () => {
             PC Tracker Activity
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Live PC activity and automated tracking via Voadera Desktop Agent.
+            Live PC activity and automated tracking via Tracker Desktop Agent.
           </p>
         </div>
       </div>
@@ -24,7 +24,7 @@ export const TrackerPage: React.FC = () => {
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-blue-500 z-10" />
         <iframe 
           src={dashboardUrl} 
-          title="Voadera Tracker Dashboard"
+          title="Tracker Tracker Dashboard"
           className="w-full h-full border-none bg-slate-900"
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
         />

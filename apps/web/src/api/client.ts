@@ -23,9 +23,9 @@ import type {
   OnlineStatusRecordDto,
   PresenceStatsDto,
   UpdateCustomStatusDto,
-  VoaderaEmployeeDto,
-  VoaderaSessionDto,
-  VoaderaDailyReportDto,
+  TrackerEmployeeDto,
+  TrackerSessionDto,
+  TrackerDailyReportDto,
   DraftPayrollDto,
   SavePayrollDto,
   PayrollRecordDto,
@@ -315,34 +315,34 @@ export const auditApi = {
   },
 };
 
-// ── Voadera ───────────────────────────────────────────────────────────────────
-export const voaderaApi = {
-  getMyDailyReport: async (start?: string, end?: string): Promise<VoaderaDailyReportDto[]> => {
-    let url = '/voadera/me/daily-report?';
+// ── Tracker ───────────────────────────────────────────────────────────────────
+export const trackerApi = {
+  getMyDailyReport: async (start?: string, end?: string): Promise<TrackerDailyReportDto[]> => {
+    let url = '/tracker/me/daily-report?';
     if (start) url += `start=${start}&`;
     if (end) url += `end=${end}`;
-    const { data } = await apiClient.get<VoaderaDailyReportDto[]>(url);
+    const { data } = await apiClient.get<TrackerDailyReportDto[]>(url);
     return data;
   },
-  getEmployees: async (start?: string, end?: string): Promise<VoaderaEmployeeDto[]> => {
-    let url = '/voadera/employees?';
+  getEmployees: async (start?: string, end?: string): Promise<TrackerEmployeeDto[]> => {
+    let url = '/tracker/employees?';
     if (start) url += `start=${start}&`;
     if (end) url += `end=${end}`;
-    const { data } = await apiClient.get<VoaderaEmployeeDto[]>(url);
+    const { data } = await apiClient.get<TrackerEmployeeDto[]>(url);
     return data;
   },
-  getSessions: async (voaderaId: string, start?: string, end?: string): Promise<VoaderaSessionDto[]> => {
-    let url = `/voadera/employees/${voaderaId}/sessions?`;
+  getSessions: async (trackerId: string, start?: string, end?: string): Promise<TrackerSessionDto[]> => {
+    let url = `/tracker/employees/${trackerId}/sessions?`;
     if (start) url += `start=${start}&`;
     if (end) url += `end=${end}`;
-    const { data } = await apiClient.get<VoaderaSessionDto[]>(url);
+    const { data } = await apiClient.get<TrackerSessionDto[]>(url);
     return data;
   },
-  getDailyReport: async (voaderaId: string, start?: string, end?: string): Promise<VoaderaDailyReportDto[]> => {
-    let url = `/voadera/employees/${voaderaId}/daily-report?`;
+  getDailyReport: async (trackerId: string, start?: string, end?: string): Promise<TrackerDailyReportDto[]> => {
+    let url = `/tracker/employees/${trackerId}/daily-report?`;
     if (start) url += `start=${start}&`;
     if (end) url += `end=${end}`;
-    const { data } = await apiClient.get<VoaderaDailyReportDto[]>(url);
+    const { data } = await apiClient.get<TrackerDailyReportDto[]>(url);
     return data;
   },
 };

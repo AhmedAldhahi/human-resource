@@ -10,7 +10,7 @@ import { CardsModule } from '../cards/cards.module';
 import { AbsenceModule } from '../absence/absence.module';
 import { ReportsModule } from '../reports/reports.module';
 import { PresenceModule } from '../presence/presence.module';
-import { VoaderaModule } from '../voadera/voadera.module';
+import { TrackerModule } from '../tracker/tracker.module';
 import { ChatModule } from '../chat/chat.module';
 import { PayrollModule } from '../payroll/payroll.module';
 import { SupabaseModule } from '../supabase/supabase.module';
@@ -34,7 +34,7 @@ import { AuditModule } from '../audit/audit.module';
     AbsenceModule,
     ReportsModule,
     PresenceModule,
-    VoaderaModule,
+    TrackerModule,
     ChatModule,
     PayrollModule,
     AuditModule,

@@ -1,16 +1,16 @@
 import { Controller, Get, Param, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
-import { VoaderaService } from './voadera.service';
+import { TrackerService } from './tracker.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@hrms/shared';
 
-@Controller('voadera')
+@Controller('tracker')
 @UseGuards(JwtAuthGuard, RolesGuard)
-export class VoaderaController {
+export class TrackerController {
   constructor(
-    private readonly voaderaService: VoaderaService,
+    private readonly trackerService: TrackerService,
     private readonly usersService: UsersService,
   ) {}
 
@@ -23,7 +23,7 @@ export class VoaderaController {
     const user = await this.usersService.findById(req.user.userId);
     if (!user) throw new ForbiddenException('User not found');
 
-    const employees = await this.voaderaService.getEmployees();
+    const employees = await this.trackerService.getEmployees();
     let matched = null;
     if (user.tsUsername) {
       matched = employees.find(e => e.windowsId === user.tsUsername);
@@ -36,13 +36,13 @@ export class VoaderaController {
       return [];
     }
 
-    return this.voaderaService.getDailyReport(matched.id, start, end);
+    return this.trackerService.getDailyReport(matched.id, start, end);
   }
 
   @Get('employees')
   @Roles(Role.ADMIN, Role.HR)
   async getEmployees(@Query('start') start?: string, @Query('end') end?: string) {
-    return this.voaderaService.getEmployees(start, end);
+    return this.trackerService.getEmployees(start, end);
   }
 
   @Get('employees/:id/sessions')
@@ -52,7 +52,7 @@ export class VoaderaController {
     @Query('start') start?: string,
     @Query('end') end?: string,
   ) {
-    return this.voaderaService.getSessions(id, start, end);
+    return this.trackerService.getSessions(id, start, end);
   }
 
   @Get('employees/:id/daily-report')
@@ -62,6 +62,6 @@ export class VoaderaController {
     @Query('start') start?: string,
     @Query('end') end?: string,
   ) {
-    return this.voaderaService.getDailyReport(id, start, end);
+    return this.trackerService.getDailyReport(id, start, end);
   }
 }

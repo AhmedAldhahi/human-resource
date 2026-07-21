@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { attendanceApi, usersApi, voaderaApi } from '../api/client';
-import { AttendanceResponseDto, AttendanceStatus, Role, VoaderaDailyReportDto } from '@hrms/shared';
+import { attendanceApi, usersApi, trackerApi } from '../api/client';
+import { AttendanceResponseDto, AttendanceStatus, Role, TrackerDailyReportDto } from '@hrms/shared';
 import { useAuth } from '../context/AuthContext';
 
 interface EmployeeHoursModalProps {
@@ -41,9 +41,9 @@ export default function EmployeeHoursModal({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
 
   const [activeTab, setActiveTab] = useState<'CLOCK_IN' | 'SERVER_HOURS' | 'COMPARE'>('CLOCK_IN');
-  const [voaderaDailyReports, setVoaderaDailyReports] = useState<VoaderaDailyReportDto[]>([]);
-  const [voaderaLoading, setVoaderaLoading] = useState(false);
-  const [voaderaError, setVoaderaError] = useState<string>('');
+  const [trackerDailyReports, setTrackerDailyReports] = useState<TrackerDailyReportDto[]>([]);
+  const [trackerLoading, setTrackerLoading] = useState(false);
+  const [trackerError, setTrackerError] = useState<string>('');
 
   // Editing state
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
@@ -54,9 +54,9 @@ export default function EmployeeHoursModal({
   const fetchAttendance = async () => {
     if (!employeeId) return;
     setLoading(true);
-    setVoaderaLoading(true);
+    setTrackerLoading(true);
     setError('');
-    setVoaderaError('');
+    setTrackerError('');
     try {
       const [user, data] = await Promise.all([
         usersApi.getById(employeeId),
@@ -75,11 +75,11 @@ export default function EmployeeHoursModal({
 
         if (currentUser && currentUser.id === employeeId && currentUser.role !== Role.ADMIN && currentUser.role !== Role.HR) {
           // Regular user viewing themselves
-          const reports = await voaderaApi.getMyDailyReport(startStr, endStr);
-          setVoaderaDailyReports(reports);
+          const reports = await trackerApi.getMyDailyReport(startStr, endStr);
+          setTrackerDailyReports(reports);
         } else {
           // Admin/HR viewing someone
-          const employees = await voaderaApi.getEmployees();
+          const employees = await trackerApi.getEmployees();
           let matched = null;
           if (user.tsUsername) {
             matched = employees.find(e => e.windowsId === user.tsUsername);
@@ -89,21 +89,21 @@ export default function EmployeeHoursModal({
           }
 
           if (matched) {
-            const reports = await voaderaApi.getDailyReport(matched.id, startStr, endStr);
-            setVoaderaDailyReports(reports);
+            const reports = await trackerApi.getDailyReport(matched.id, startStr, endStr);
+            setTrackerDailyReports(reports);
           } else {
-            setVoaderaError('No matching Tracker account found. Please link Windows Username in profile.');
-            setVoaderaDailyReports([]);
+            setTrackerError('No matching Tracker account found. Please link Windows Username in profile.');
+            setTrackerDailyReports([]);
           }
         }
       } catch (err: any) {
-        setVoaderaError('Failed to load tracker data.');
+        setTrackerError('Failed to load tracker data.');
       }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to fetch attendance records.');
     } finally {
       setLoading(false);
-      setVoaderaLoading(false);
+      setTrackerLoading(false);
     }
   };
 
@@ -344,35 +344,35 @@ export default function EmployeeHoursModal({
         }
      });
 
-     const combinedDates = Array.from(new Set([...Object.keys(groupedHrms), ...voaderaDailyReports.map(r => r.date)])).sort().reverse();
+     const combinedDates = Array.from(new Set([...Object.keys(groupedHrms), ...trackerDailyReports.map(r => r.date)])).sort().reverse();
      
      return combinedDates.map(date => {
         const hrms = groupedHrms[date];
-        const voadera = voaderaDailyReports.find(r => r.date === date);
+        const tracker = trackerDailyReports.find(r => r.date === date);
         
-        let voaderaMins = 0;
-        if (voadera?.activeTime) {
+        let trackerMins = 0;
+        if (tracker?.activeTime) {
            let h = 0, m = 0;
-           const hMatch = voadera.activeTime.match(/(\d+)h/);
+           const hMatch = tracker.activeTime.match(/(\d+)h/);
            if (hMatch) h = parseInt(hMatch[1], 10);
-           const mMatch = voadera.activeTime.match(/(\d+)m/);
+           const mMatch = tracker.activeTime.match(/(\d+)m/);
            if (mMatch) m = parseInt(mMatch[1], 10);
            
-           if (voadera.activeTime.includes(':')) {
-              const parts = voadera.activeTime.split(':');
+           if (tracker.activeTime.includes(':')) {
+              const parts = tracker.activeTime.split(':');
               if (parts.length >= 2) {
                  h = parseInt(parts[0], 10);
                  m = parseInt(parts[1], 10);
               }
            }
-           voaderaMins = (h * 60) + m;
+           trackerMins = (h * 60) + m;
         }
         
-        const diffMins = hrms ? voaderaMins - hrms.totalMins : 0;
+        const diffMins = hrms ? trackerMins - hrms.totalMins : 0;
         
-        return { date, hrms, voadera, voaderaMins, diffMins };
+        return { date, hrms, tracker, trackerMins, diffMins };
      });
-  }, [records, voaderaDailyReports]);
+  }, [records, trackerDailyReports]);
 
   if (!isOpen) return null;
 
@@ -866,11 +866,11 @@ export default function EmployeeHoursModal({
 
         {activeTab === 'SERVER_HOURS' && (
            <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center">
-              {voaderaError ? (
+              {trackerError ? (
                  <div className="glass-card p-10 text-center border border-white/5 mx-auto w-full max-w-md">
-                   <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
+                   <p className="text-amber-400 text-base font-bold">{trackerError}</p>
                  </div>
-              ) : voaderaLoading ? (
+              ) : trackerLoading ? (
                  <div className="flex justify-center py-20">
                    <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
                  </div>
@@ -900,7 +900,7 @@ export default function EmployeeHoursModal({
                           let totalSpanMinutes = 0;
                           let totalActiveMinutes = 0;
                           
-                          voaderaDailyReports.forEach(report => {
+                          trackerDailyReports.forEach(report => {
                             // Sum Total Time
                             if (report.totalTime) {
                               let h = 0, m = 0;
@@ -967,11 +967,11 @@ export default function EmployeeHoursModal({
 
         {activeTab === 'COMPARE' && (
            <div className="p-6 overflow-y-auto flex-1">
-              {voaderaError ? (
+              {trackerError ? (
                  <div className="glass-card p-16 text-center border border-white/5 mx-auto w-full max-w-2xl mt-10">
-                   <p className="text-amber-400 text-base font-bold">{voaderaError}</p>
+                   <p className="text-amber-400 text-base font-bold">{trackerError}</p>
                  </div>
-              ) : voaderaLoading ? (
+              ) : trackerLoading ? (
                  <div className="flex justify-center py-20">
                    <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
                  </div>
@@ -982,7 +982,7 @@ export default function EmployeeHoursModal({
                        <tr>
                          <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
                          <th className="text-left px-6 py-4 text-xs font-bold text-indigo-300 uppercase tracking-wider border-x border-white/5 bg-indigo-500/5 text-center" colSpan={2}>Clock-In (HRMS)</th>
-                         <th className="text-left px-6 py-4 text-xs font-bold text-emerald-300 uppercase tracking-wider border-x border-white/5 bg-emerald-500/5 text-center" colSpan={2}>Tracker (Voadera)</th>
+                         <th className="text-left px-6 py-4 text-xs font-bold text-emerald-300 uppercase tracking-wider border-x border-white/5 bg-emerald-500/5 text-center" colSpan={2}>Tracker (Tracker)</th>
                          <th className="text-left px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wider text-center">Variance (Active vs Clocked)</th>
                        </tr>
                        <tr className="border-b border-white/10 text-[10px] text-slate-400">
@@ -1005,13 +1005,13 @@ export default function EmployeeHoursModal({
                              {row.hrms ? `${Math.floor(row.hrms.totalMins / 60)}h ${row.hrms.totalMins % 60}m` : '-'}
                            </td>
                            <td className="px-6 py-4 text-slate-300 font-mono bg-emerald-500/5 border-l border-white/5">
-                             {row.voadera ? row.voadera.totalTime : '-'}
+                             {row.tracker ? row.tracker.totalTime : '-'}
                            </td>
                            <td className="px-6 py-4 text-emerald-400 font-bold bg-emerald-500/5 border-r border-white/5">
-                             {row.voadera ? row.voadera.activeTime : '-'}
+                             {row.tracker ? row.tracker.activeTime : '-'}
                            </td>
                            <td className="px-6 py-4 text-center font-bold">
-                             {row.hrms && row.voadera ? (
+                             {row.hrms && row.tracker ? (
                                <span className={row.diffMins >= 0 ? 'text-emerald-400' : 'text-amber-400'}>
                                  {row.diffMins > 0 ? '+' : ''}{row.diffMins === 0 ? 'Match' : `${row.diffMins < 0 ? '-' : ''}${Math.floor(Math.abs(row.diffMins) / 60)}h ${Math.abs(row.diffMins) % 60}m`}
                                </span>

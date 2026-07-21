@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2026 Ahmed Aldhahi. All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL
+ * This software is the intellectual property of Ahmed Aldhahi.
+ * Unauthorized copying, modification, or distribution is strictly prohibited.
+ */
+
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app/app.module';
