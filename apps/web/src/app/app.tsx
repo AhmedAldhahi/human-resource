@@ -18,6 +18,7 @@ const PresencePage = React.lazy(() => import('../pages/PresencePage'));
 const TrackerPage = React.lazy(() => import('../pages/TrackerPage').then(m => ({ default: m.TrackerPage })));
 const ChatPage = React.lazy(() => import('../pages/ChatPage'));
 const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagementPage'));
+const AuditLogPage = React.lazy(() => import('../pages/AuditLogPage'));
 
 const PageLoader = () => (
   <div className="flex h-screen items-center justify-center bg-slate-950">
@@ -108,6 +109,15 @@ export function App() {
               element={
                 <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
                   <CreateUserPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* ADMIN only */}
+            <Route
+              path="audit"
+              element={
+                <ProtectedRoute allowedRoles={[Role.ADMIN]}>
+                  <AuditLogPage />
                 </ProtectedRoute>
               }
             />

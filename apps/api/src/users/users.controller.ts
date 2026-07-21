@@ -20,6 +20,7 @@ import { extname } from 'path';
 import * as fs from 'fs';
 import { UsersService } from './users.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -38,6 +39,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly supabaseService: SupabaseService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Get()
@@ -85,8 +87,22 @@ export class UsersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.HR)
-  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return this.usersService.create(createUserDto);
+  async create(
+    @Request() req: { user: { userId: string; email: string; role: Role } },
+    @Body() createUserDto: CreateUserDto
+  ): Promise<UserResponseDto> {
+    if (createUserDto.role === Role.ADMIN && req.user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only Administrators can create new Admin users.');
+    }
+    const user = await this.usersService.create(createUserDto);
+    await this.auditService.logAction(
+      req.user.userId,
+      'CREATE_USER',
+      `Created user ${user.name} (${user.email}) with role ${user.role}`,
+      user.id,
+      user.name,
+    );
+    return user;
   }
 
   @Patch(':id/profile')
@@ -104,7 +120,21 @@ export class UsersController {
       throw new ForbiddenException('You do not have permission to update this user profile.');
     }
 
-    return this.usersService.updateProfile(id, dto);
+    const user = await this.usersService.updateProfile(id, dto);
+    
+    // Only log if admin or HR did it for someone else, or maybe always log?
+    // Let's log it if admin/HR does it.
+    if (req.user.role === Role.ADMIN || req.user.role === Role.HR) {
+      await this.auditService.logAction(
+        req.user.userId,
+        'UPDATE_PROFILE',
+        `Updated profile for ${user.name}`,
+        user.id,
+        user.name,
+      );
+    }
+    
+    return user;
   }
 
   @Patch(':id/wage')
@@ -113,8 +143,17 @@ export class UsersController {
   async updateWage(
     @Param('id') id: string,
     @Body() dto: UpdateWageDto,
+    @Request() req: { user: { userId: string } },
   ): Promise<UserResponseDto> {
-    return this.usersService.updateWage(id, dto);
+    const user = await this.usersService.updateWage(id, dto);
+    await this.auditService.logAction(
+      req.user.userId,
+      'UPDATE_WAGE',
+      `Updated wage/role for ${user.name}. Role: ${dto.role}, Hourly: ${dto.hourlyWage}, Dept: ${dto.department}`,
+      user.id,
+      user.name,
+    );
+    return user;
   }
 
   @Patch(':id/employee-type')
@@ -123,8 +162,17 @@ export class UsersController {
   async updateEmployeeType(
     @Param('id') id: string,
     @Body() dto: UpdateEmployeeTypeDto,
+    @Request() req: { user: { userId: string } },
   ): Promise<UserResponseDto> {
-    return this.usersService.updateEmployeeType(id, dto);
+    const user = await this.usersService.updateEmployeeType(id, dto);
+    await this.auditService.logAction(
+      req.user.userId,
+      'UPDATE_EMPLOYEE_TYPE',
+      `Updated employee type for ${user.name} to ${dto.employeeType}. Salary: ${dto.monthlySalary}, Hourly: ${dto.hourlyWage}`,
+      user.id,
+      user.name,
+    );
+    return user;
   }
 
   @Patch(':id/reset-absence')
@@ -171,8 +219,17 @@ export class UsersController {
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateActiveStatusDto,
+    @Request() req: { user: { userId: string } },
   ): Promise<UserResponseDto> {
-    return this.usersService.updateStatus(id, dto.isActive);
+    const user = await this.usersService.updateStatus(id, dto.isActive);
+    await this.auditService.logAction(
+      req.user.userId,
+      'UPDATE_STATUS',
+      `${dto.isActive ? 'Reactivated' : 'Deactivated'} user ${user.name}`,
+      user.id,
+      user.name,
+    );
+    return user;
   }
 }
 

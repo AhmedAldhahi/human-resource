@@ -14,6 +14,7 @@ import { VoaderaModule } from '../voadera/voadera.module';
 import { ChatModule } from '../chat/chat.module';
 import { PayrollModule } from '../payroll/payroll.module';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
     VoaderaModule,
     ChatModule,
     PayrollModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

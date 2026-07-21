@@ -29,6 +29,8 @@ import type {
   DraftPayrollDto,
   SavePayrollDto,
   PayrollRecordDto,
+  PayrollRecordResponseDto,
+  AuditLogResponseDto,
 } from '@hrms/shared';
 
 const getBaseUrl = () => {
@@ -294,13 +296,21 @@ export const presenceApi = {
     return data;
   },
 
-  getStats: async (): Promise<PresenceStatsDto> => {
-    const { data } = await apiClient.get<PresenceStatsDto>('/presence/stats');
+  getStats: async (): Promise<any> => {
+    const { data } = await apiClient.get<any>('/reports/stats');
     return data;
   },
 
   updateCustomStatus: async (dto: UpdateCustomStatusDto): Promise<OnlineStatusRecordDto[]> => {
     const { data } = await apiClient.patch<OnlineStatusRecordDto[]>('/presence/custom-status', dto);
+    return data;
+  },
+};
+
+// ── Audit Logs ──────────────────────────────────────────────────────────────
+export const auditApi = {
+  getLogs: async (): Promise<AuditLogResponseDto[]> => {
+    const { data } = await apiClient.get<AuditLogResponseDto[]>('/audit');
     return data;
   },
 };

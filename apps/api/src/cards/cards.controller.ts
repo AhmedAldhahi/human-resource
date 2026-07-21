@@ -9,6 +9,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { CardsService } from './cards.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -20,7 +21,10 @@ import {
 
 @Controller('cards')
 export class CardsController {
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(
+    private readonly cardsService: CardsService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Post('issue')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,7 +33,14 @@ export class CardsController {
     @Request() req: { user: { userId: string; email: string; role: Role } },
     @Body() issueCardDto: IssueCardDto,
   ): Promise<CardResponseDto> {
-    return this.cardsService.issueCard(req.user.userId, issueCardDto);
+    const card = await this.cardsService.issueCard(req.user.userId, issueCardDto);
+    await this.auditService.logAction(
+      req.user.userId,
+      'ISSUE_CARD',
+      `Issued ${issueCardDto.cardType} card for reason: "${issueCardDto.reason}"`,
+      card.id,
+    );
+    return card;
   }
 
   @Get('employee/:id')
@@ -50,7 +61,17 @@ export class CardsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.HR)
-  async deleteCard(@Param('id') id: string): Promise<{ success: boolean }> {
-    return this.cardsService.deleteCard(id);
+  async deleteCard(
+    @Param('id') id: string,
+    @Request() req: { user: { userId: string } },
+  ): Promise<{ success: boolean }> {
+    const result = await this.cardsService.deleteCard(id);
+    await this.auditService.logAction(
+      req.user.userId,
+      'DELETE_CARD',
+      `Deleted performance card`,
+      id,
+    );
+    return result;
   }
 }

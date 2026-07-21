@@ -1,8 +1,10 @@
 import React, { useState, type FormEvent } from 'react';
 import { Role, EmployeeType } from '@hrms/shared';
 import { usersApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function CreateUserPage() {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -157,9 +159,11 @@ export default function CreateUserPage() {
                 <option value={Role.HR} className="bg-slate-900">
                   HR (Human Resources)
                 </option>
-                <option value={Role.ADMIN} className="bg-slate-900">
-                  ADMIN (Superuser)
-                </option>
+                {user?.role === Role.ADMIN && (
+                  <option value={Role.ADMIN} className="bg-slate-900">
+                    ADMIN (Superuser)
+                  </option>
+                )}
               </select>
             </div>
           </div>

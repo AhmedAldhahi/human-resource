@@ -267,6 +267,19 @@ export interface DraftPayrollDto {
   savedStatus?: PayrollStatus;
 }
 
+// ─── Audit DTOs ─────────────────────────────────────────────────────────────
+
+export interface AuditLogResponseDto {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: string;
+  targetId: string | null;
+  targetName: string | null;
+  details: string;
+  createdAt: string;
+}
+
 // ─── Absence DTOs ───────────────────────────────────────────────────────────
 
 export interface CreateAbsenceDto {

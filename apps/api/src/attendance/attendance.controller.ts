@@ -8,8 +8,8 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
-} from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -23,7 +23,10 @@ import {
 
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Post('clock-in')
   @UseGuards(JwtAuthGuard)
@@ -68,8 +71,16 @@ export class AttendanceController {
   async resolveException(
     @Param('id') id: string,
     @Body('status') status: 'ACCEPTED' | 'REJECTED',
+    @Request() req: { user: { userId: string } },
   ): Promise<AttendanceResponseDto> {
-    return this.attendanceService.resolveException(id, status);
+    const record = await this.attendanceService.resolveException(id, status);
+    await this.auditService.logAction(
+      req.user.userId,
+      'RESOLVE_EXCEPTION',
+      `Resolved attendance exception as ${status}`,
+      record.id,
+    );
+    return record;
   }
 
   @Get('employee/:id')
@@ -94,8 +105,16 @@ export class AttendanceController {
   async updateAttendance(
     @Param('id') id: string,
     @Body() dto: UpdateAttendanceDto,
+    @Request() req: { user: { userId: string } },
   ): Promise<AttendanceResponseDto> {
-    return this.attendanceService.updateAttendance(id, dto);
+    const record = await this.attendanceService.updateAttendance(id, dto);
+    await this.auditService.logAction(
+      req.user.userId,
+      'UPDATE_ATTENDANCE',
+      `Manually updated attendance record. Status: ${dto.status || record.status}`,
+      record.id,
+    );
+    return record;
   }
 }
 
