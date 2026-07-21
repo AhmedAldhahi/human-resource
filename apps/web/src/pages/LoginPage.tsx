@@ -126,7 +126,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-slate-600 text-xs mt-6">
-          &copy; {new Date().getFullYear()} HRMS — Human Resource Management System
+          &copy; {new Date().getFullYear()} Ahmed Aldhahi — Human Resource Management System
         </p>
       </div>
     </div>
