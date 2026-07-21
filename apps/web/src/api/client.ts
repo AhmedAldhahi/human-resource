@@ -187,6 +187,16 @@ export const attendanceApi = {
     );
     return data;
   },
+
+  getPendingExceptions: async (): Promise<AttendanceResponseDto[]> => {
+    const { data } = await apiClient.get<AttendanceResponseDto[]>('/attendance/exceptions/pending');
+    return data;
+  },
+
+  resolveException: async (id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<AttendanceResponseDto> => {
+    const { data } = await apiClient.patch<AttendanceResponseDto>(`/attendance/exceptions/${id}/resolve`, { status });
+    return data;
+  },
 };
 
 // ── Cards ───────────────────────────────────────────────────────────────────

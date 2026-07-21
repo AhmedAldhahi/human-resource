@@ -23,6 +23,9 @@ export class AttendanceService {
       penaltyMinutes: record.penaltyMinutes,
       completedTasksCount: record.completedTasksCount ?? null,
       clockOutNote: record.clockOutNote ?? null,
+      authorizationName: record.authorizationName ?? null,
+      isException: record.isException ?? false,
+      exceptionStatus: record.exceptionStatus ?? null,
     };
   }
 
@@ -104,13 +107,50 @@ export class AttendanceService {
       );
     }
 
+    const now = new Date();
+    const startOfDay = new Date(openAttendance.clockInTime);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(openAttendance.clockInTime);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const sameDayRecords = await this.prisma.attendance.findMany({
+      where: {
+        employeeId,
+        status: AttendanceStatus.CLOCKED_OUT,
+        clockInTime: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    let totalMinutes = (now.getTime() - openAttendance.clockInTime.getTime()) / 60000;
+    for (const r of sameDayRecords) {
+      if (r.clockOutTime) {
+        totalMinutes += (r.clockOutTime.getTime() - r.clockInTime.getTime()) / 60000;
+      }
+    }
+
+    let isException = false;
+    let exceptionStatus: string | null = null;
+    let authorizationName: string | null = null;
+
+    if (totalMinutes > 12 * 60) {
+      if (!dto.authorizationName || dto.authorizationName.trim().length === 0) {
+        throw new BadRequestException('NEEDS_AUTHORIZATION: You have crossed 12 hours in a single day. Who gave you authorization?');
+      }
+      isException = true;
+      exceptionStatus = 'PENDING';
+      authorizationName = dto.authorizationName.trim();
+    }
+
     const attendance = await this.prisma.attendance.update({
       where: { id: openAttendance.id },
       data: {
-        clockOutTime: new Date(),
+        clockOutTime: now,
         status: AttendanceStatus.CLOCKED_OUT,
         completedTasksCount: dto.completedTasksCount,
         clockOutNote: dto.clockOutNote,
+        authorizationName,
+        isException,
+        exceptionStatus,
       },
     });
 
@@ -182,6 +222,28 @@ export class AttendanceService {
 
     this.presenceGateway?.broadcastPresenceUpdate();
 
+    return this.mapRecord(updated);
+  }
+
+  async getPendingExceptions(): Promise<AttendanceResponseDto[]> {
+    const records = await this.prisma.attendance.findMany({
+      where: {
+        isException: true,
+        exceptionStatus: 'PENDING',
+      },
+      orderBy: { clockInTime: 'desc' },
+    });
+    return records.map((record) => this.mapRecord(record));
+  }
+
+  async resolveException(id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<AttendanceResponseDto> {
+    const record = await this.prisma.attendance.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Record not found');
+
+    const updated = await this.prisma.attendance.update({
+      where: { id },
+      data: { exceptionStatus: status },
+    });
     return this.mapRecord(updated);
   }
 }

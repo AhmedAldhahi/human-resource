@@ -55,6 +55,23 @@ export class AttendanceController {
     return this.attendanceService.getMyAttendance(req.user.userId);
   }
 
+  @Get('exceptions/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async getPendingExceptions(): Promise<AttendanceResponseDto[]> {
+    return this.attendanceService.getPendingExceptions();
+  }
+
+  @Patch('exceptions/:id/resolve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async resolveException(
+    @Param('id') id: string,
+    @Body('status') status: 'ACCEPTED' | 'REJECTED',
+  ): Promise<AttendanceResponseDto> {
+    return this.attendanceService.resolveException(id, status);
+  }
+
   @Get('employee/:id')
   @UseGuards(JwtAuthGuard)
   async getByEmployee(

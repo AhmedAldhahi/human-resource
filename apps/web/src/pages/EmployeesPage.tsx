@@ -2,10 +2,11 @@ import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import type { UserResponseDto, OnlineStatusRecordDto } from '@hrms/shared';
 import { Role, EmployeeType, PresenceStatus } from '@hrms/shared';
-import { usersApi, presenceApi } from '../api/client';
+import { usersApi, presenceApi, attendanceApi } from '../api/client';
 import IssueCardModal from '../components/IssueCardModal';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import EmployeeWageModal from '../components/EmployeeWageModal';
+import type { AttendanceResponseDto } from '@hrms/shared';
 
 
 function roleBadgeClasses(role: Role): string {
@@ -24,6 +25,8 @@ export default function EmployeesPage() {
   const [presenceMap, setPresenceMap] = useState<Record<string, OnlineStatusRecordDto>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'EMPLOYEES' | 'EXCEPTIONS'>('EMPLOYEES');
+  const [exceptions, setExceptions] = useState<AttendanceResponseDto[]>([]);
 
   const [showInactive, setShowInactive] = useState(false);
 
@@ -61,6 +64,9 @@ export default function EmployeesPage() {
         map[r.userId] = r;
       });
       setPresenceMap(map);
+
+      const pendingExceptions = await attendanceApi.getPendingExceptions();
+      setExceptions(pendingExceptions);
     } catch {
       // ignore
     } finally {
@@ -106,6 +112,14 @@ export default function EmployeesPage() {
     setWageModalOpen(true);
   };
 
+  const handleResolveException = async (id: string, status: 'ACCEPTED' | 'REJECTED') => {
+    try {
+      await attendanceApi.resolveException(id, status);
+      fetchEmployees();
+    } catch {
+      alert('Failed to resolve exception.');
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -119,15 +133,46 @@ export default function EmployeesPage() {
 
         {/* Actions & Search */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500"
-            />
-            Show Inactive
-          </label>
+          <div className="flex bg-slate-900/60 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab('EMPLOYEES')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'EMPLOYEES'
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Directory
+            </button>
+            <button
+              onClick={() => setActiveTab('EXCEPTIONS')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'EXCEPTIONS'
+                  ? 'bg-red-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Exceptions
+              {exceptions.length > 0 && (
+                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {exceptions.length}
+                </span>
+              )}
+            </button>
+          </div>
+          
+          {activeTab === 'EMPLOYEES' && (
+            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500"
+              />
+              Show Inactive
+            </label>
+          )}
+
           <div className="relative w-full sm:w-80">
             <svg
             className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
@@ -146,7 +191,7 @@ export default function EmployeesPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, role or department…"
+            placeholder={activeTab === 'EMPLOYEES' ? "Search by name, email..." : "Search exceptions..."}
             className="input-field pl-10"
           />
           </div>
@@ -160,10 +205,10 @@ export default function EmployeesPage() {
       ) : filtered.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <p className="text-slate-400">
-            {search ? 'No employees match your search.' : 'No employees found.'}
+            {search ? 'No matches found.' : (activeTab === 'EMPLOYEES' ? 'No employees found.' : 'No pending exceptions!')}
           </p>
         </div>
-      ) : (
+      ) : activeTab === 'EMPLOYEES' ? (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -361,6 +406,49 @@ export default function EmployeesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : (
+        <div className="glass-card p-6 space-y-4">
+          <h2 className="text-lg font-bold text-red-400">Pending >12h Overtime Exceptions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {exceptions.map(ex => {
+              const emp = employees.find(e => e.id === ex.employeeId);
+              return (
+                <div key={ex.id} className="bg-slate-900/60 border border-red-500/30 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">{emp?.name || 'Unknown Employee'}</span>
+                    <span className="text-xs text-slate-400">{new Date(ex.clockInTime).toLocaleDateString()}</span>
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    <p><strong className="text-slate-400">Authorized By:</strong> {ex.authorizationName}</p>
+                    <p><strong className="text-slate-400">Task:</strong> {ex.intendedTask}</p>
+                  </div>
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                    <button
+                      onClick={() => handleResolveException(ex.id, 'ACCEPTED')}
+                      className="flex-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 py-2 rounded-lg text-xs font-bold transition"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (emp) handleViewHours(emp);
+                      }}
+                      className="flex-1 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 py-2 rounded-lg text-xs font-bold transition"
+                    >
+                      Edit Hours
+                    </button>
+                    <button
+                      onClick={() => handleResolveException(ex.id, 'REJECTED')}
+                      className="flex-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 py-2 rounded-lg text-xs font-bold transition"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

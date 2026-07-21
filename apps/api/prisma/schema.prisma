@@ -104,6 +104,9 @@ model Attendance {
   penaltyMinutes      Int              @default(0)
   completedTasksCount Float?
   clockOutNote        String?
+  authorizationName   String?
+  isException         Boolean          @default(false)
+  exceptionStatus     String? // e.g. PENDING, ACCEPTED, REJECTED
 
   employee            User             @relation(fields: [employeeId], references: [id])
 }

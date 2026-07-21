@@ -16,6 +16,8 @@ export default function AttendancePage() {
   const [workLocation, setWorkLocation] = useState<WorkLocation>(WorkLocation.OFFICE);
   const [completedTasksCount, setCompletedTasksCount] = useState<string>('');
   const [clockOutNote, setClockOutNote] = useState<string>('');
+  const [authorizationName, setAuthorizationName] = useState<string>('');
+  const [needsAuthorization, setNeedsAuthorization] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -76,12 +78,21 @@ export default function AttendancePage() {
       await attendanceApi.clockOut({
         completedTasksCount: !isNaN(num as number) && num !== undefined ? num : null,
         clockOutNote: clockOutNote.trim() || null,
+        authorizationName: authorizationName.trim() || undefined,
       });
       setCompletedTasksCount('');
       setClockOutNote('');
+      setAuthorizationName('');
+      setNeedsAuthorization(false);
       await fetchRecords();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to clock out.');
+      const msg = err?.response?.data?.message || 'Failed to clock out.';
+      if (typeof msg === 'string' && msg.includes('NEEDS_AUTHORIZATION')) {
+        setNeedsAuthorization(true);
+        setError('You have crossed 12 hours in a single day. Who gave you authorization?');
+      } else {
+        setError(msg);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -222,12 +233,28 @@ export default function AttendancePage() {
                   />
                   <span className="text-[11px] text-slate-500 mt-1 block">Explanation text next to output</span>
                 </div>
+                
+                {needsAuthorization && (
+                  <div className="sm:col-span-3 mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl animate-fadeIn">
+                    <label className="block text-xs font-bold text-red-400 mb-1.5">
+                      Authorization Required (Over 12 Hours)
+                    </label>
+                    <input
+                      type="text"
+                      value={authorizationName}
+                      onChange={(e) => setAuthorizationName(e.target.value)}
+                      placeholder="Who authorized this overtime? (e.g. John Doe)"
+                      className="input-field py-2 text-sm bg-slate-950/80 border-red-500/50 focus:border-red-400 text-white placeholder:text-slate-500 w-full"
+                    />
+                    <span className="text-[11px] text-red-400/80 mt-1 block">Please provide the name of the authorizing manager to proceed.</span>
+                  </div>
+                )}
               </div>
             </div>
 
             <button
               onClick={handleClockOut}
-              disabled={actionLoading || !completedTasksCount || !clockOutNote.trim()}
+              disabled={actionLoading || !completedTasksCount || !clockOutNote.trim() || (needsAuthorization && !authorizationName.trim())}
               className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? (

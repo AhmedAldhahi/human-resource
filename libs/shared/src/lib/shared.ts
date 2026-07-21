@@ -153,6 +153,7 @@ export interface ClockInDto {
 export interface ClockOutDto {
   completedTasksCount?: number | null;
   clockOutNote?: string | null;
+  authorizationName?: string | null;
 }
 
 export interface AttendanceResponseDto {
@@ -167,6 +168,9 @@ export interface AttendanceResponseDto {
   penaltyMinutes: number;
   completedTasksCount?: number | null;
   clockOutNote?: string | null;
+  authorizationName?: string | null;
+  isException?: boolean;
+  exceptionStatus?: string | null;
 }
 
 export interface UpdateAttendanceDto {
@@ -179,6 +183,9 @@ export interface UpdateAttendanceDto {
   penaltyMinutes?: number;
   completedTasksCount?: number | null;
   clockOutNote?: string | null;
+  authorizationName?: string | null;
+  isException?: boolean;
+  exceptionStatus?: string | null;
 }
 
 // ─── Performance Card DTOs ──────────────────────────────────────────────────
