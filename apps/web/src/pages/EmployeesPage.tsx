@@ -410,7 +410,7 @@ export default function EmployeesPage() {
         </div>
       ) : (
         <div className="glass-card p-6 space-y-4">
-          <h2 className="text-lg font-bold text-red-400">Pending >12h Overtime Exceptions</h2>
+          <h2 className="text-lg font-bold text-red-400">Pending &gt;12h Overtime Exceptions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {exceptions.map(ex => {
               const emp = employees.find(e => e.id === ex.employeeId);
