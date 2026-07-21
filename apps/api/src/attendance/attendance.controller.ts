@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -55,11 +56,18 @@ export class AttendanceController {
   }
 
   @Get('employee/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.HR)
+  @UseGuards(JwtAuthGuard)
   async getByEmployee(
     @Param('id') employeeId: string,
+    @Request() req: { user: { userId: string; email: string; role: Role } },
   ): Promise<AttendanceResponseDto[]> {
+    if (
+      req.user.role !== Role.ADMIN &&
+      req.user.role !== Role.HR &&
+      req.user.userId !== employeeId
+    ) {
+      throw new ForbiddenException('You do not have permission to view this attendance data.');
+    }
     return this.attendanceService.getByEmployee(employeeId);
   }
 

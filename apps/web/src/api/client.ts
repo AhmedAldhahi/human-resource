@@ -297,6 +297,13 @@ export const presenceApi = {
 
 // ── Voadera ───────────────────────────────────────────────────────────────────
 export const voaderaApi = {
+  getMyDailyReport: async (start?: string, end?: string): Promise<VoaderaDailyReportDto[]> => {
+    let url = '/voadera/me/daily-report?';
+    if (start) url += `start=${start}&`;
+    if (end) url += `end=${end}`;
+    const { data } = await apiClient.get<VoaderaDailyReportDto[]>(url);
+    return data;
+  },
   getEmployees: async (start?: string, end?: string): Promise<VoaderaEmployeeDto[]> => {
     let url = '/voadera/employees?';
     if (start) url += `start=${start}&`;

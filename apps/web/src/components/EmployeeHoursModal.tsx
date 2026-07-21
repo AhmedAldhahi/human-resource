@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { attendanceApi, usersApi, voaderaApi } from '../api/client';
 import { AttendanceResponseDto, AttendanceStatus, Role, VoaderaDailyReportDto } from '@hrms/shared';
+import { useAuth } from '../context/AuthContext';
 
 interface EmployeeHoursModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export default function EmployeeHoursModal({
   employeeRole,
   readOnly = false,
 }: EmployeeHoursModalProps) {
+  const { user: currentUser } = useAuth();
   const [records, setRecords] = useState<AttendanceResponseDto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -63,29 +65,36 @@ export default function EmployeeHoursModal({
       setRecords(data);
 
       try {
-        const employees = await voaderaApi.getEmployees();
-        let matched = null;
-        if (user.tsUsername) {
-          matched = employees.find(e => e.windowsId === user.tsUsername);
-        }
-        if (!matched && employeeName) {
-          matched = employees.find(e => (e.name || '').toLowerCase() === employeeName.toLowerCase() || e.windowsId === employeeName);
-        }
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const startStr = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
+        const endStr = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
 
-        if (matched) {
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          
-          const pad = (n: number) => n.toString().padStart(2, '0');
-          const startStr = `${startOfMonth.getFullYear()}-${pad(startOfMonth.getMonth() + 1)}-${pad(startOfMonth.getDate())}`;
-          const endStr = `${endOfMonth.getFullYear()}-${pad(endOfMonth.getMonth() + 1)}-${pad(endOfMonth.getDate())}`;
-
-          const reports = await voaderaApi.getDailyReport(matched.id, startStr, endStr);
+        if (currentUser && currentUser.id === employeeId && currentUser.role !== Role.ADMIN && currentUser.role !== Role.HR) {
+          // Regular user viewing themselves
+          const reports = await voaderaApi.getMyDailyReport(startStr, endStr);
           setVoaderaDailyReports(reports);
         } else {
-          setVoaderaError('No matching Tracker account found. Please link Windows Username in profile.');
-          setVoaderaDailyReports([]);
+          // Admin/HR viewing someone
+          const employees = await voaderaApi.getEmployees();
+          let matched = null;
+          if (user.tsUsername) {
+            matched = employees.find(e => e.windowsId === user.tsUsername);
+          }
+          if (!matched && employeeName) {
+            matched = employees.find(e => (e.name || '').toLowerCase() === employeeName.toLowerCase() || e.windowsId === employeeName);
+          }
+
+          if (matched) {
+            const reports = await voaderaApi.getDailyReport(matched.id, startStr, endStr);
+            setVoaderaDailyReports(reports);
+          } else {
+            setVoaderaError('No matching Tracker account found. Please link Windows Username in profile.');
+            setVoaderaDailyReports([]);
+          }
         }
       } catch (err: any) {
         setVoaderaError('Failed to load tracker data.');
