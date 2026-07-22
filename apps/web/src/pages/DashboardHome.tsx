@@ -76,13 +76,13 @@ export default function DashboardHome() {
           </div>
           <p
             className={`text-4xl font-extrabold ${
-              user.netCardPoints >= 0 ? 'text-emerald-400' : 'text-red-400'
+              user.netCardPoints >= 0 ? 'text-emerald-400' : 'text-red-500'
             }`}
           >
             {user.netCardPoints >= 0 ? '+' : ''}
             {user.netCardPoints}
           </p>
-          <p className="text-xs text-slate-500">Net performance points</p>
+          <p className="text-xs text-slate-500 font-medium">Net performance points</p>
         </div>
 
         {/* Attendance Status */}
@@ -113,11 +113,11 @@ export default function DashboardHome() {
             </div>
           ) : (
             <>
-              <p className={`text-2xl font-bold ${isClockedIn ? 'text-emerald-400' : 'text-slate-300'}`}>
+              <p className={`text-2xl font-bold ${isClockedIn ? 'text-emerald-400' : 'text-white'}`}>
                 {isClockedIn ? 'Clocked In' : todayRecord ? 'Clocked Out' : 'Not Clocked In'}
               </p>
               {todayRecord && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 font-medium">
                   Since{' '}
                   {new Date(todayRecord.clockInTime).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -140,7 +140,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <p className="text-2xl font-bold text-white">{user.role}</p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 font-medium">
             Member since{' '}
             {new Date(user.createdAt).toLocaleDateString('en-US', {
               month: 'short',
@@ -201,7 +201,7 @@ export default function DashboardHome() {
 
             <Link
               to="/dashboard/presence"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-indigo-500/20 border border-emerald-500/30 text-emerald-400 hover:text-white hover:border-emerald-500/60 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 flex-shrink-0"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-indigo-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 flex-shrink-0"
             >
               <span>Explore Live Radar</span>
               <span>→</span>
@@ -212,7 +212,7 @@ export default function DashboardHome() {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-bold text-white mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           {!isClockedIn && (
             <Link
@@ -240,7 +240,7 @@ export default function DashboardHome() {
             <>
               <Link
                 to="/dashboard/employees"
-                className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-white/10 transition-all duration-200"
+                className="bg-white/5 border border-white/10 text-white rounded-xl inline-flex items-center gap-2 text-sm px-5 py-2.5 hover:bg-white/10 transition-all duration-200"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -249,10 +249,10 @@ export default function DashboardHome() {
               </Link>
               <Link
                 to="/dashboard/issue-card"
-                className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-white/10 transition-all duration-200"
+                className="bg-white/5 border border-white/10 text-white rounded-xl inline-flex items-center gap-2 text-sm px-5 py-2.5 hover:bg-white/10 transition-all duration-200"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138c.157.73.555 1.395 1.106 1.946.898.898.898 2.354 0 3.252a3.42 3.42 0 00-1.106 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946 1.106 3.42 3.42 0 01-3.252 0 3.42 3.42 0 00-1.946-1.106 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-1.106-1.946 3.42 3.42 0 010-3.252 3.42 3.42 0 001.106-1.946 3.42 3.42 0 013.138-3.138z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 013.138 3.138c.157.73.555 1.395 1.106 1.946.898.898.898 2.354 0 3.252a3.42 3.42 0 00-1.106 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946 1.106 3.42 3.42 0 01-3.252 0 3.42 3.42 0 00-1.946-1.106 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-1.106-1.946 3.42 3.42 0 010-3.252 3.42 3.42 0 001.106-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
                 Issue Card
               </Link>

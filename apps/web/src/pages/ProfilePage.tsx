@@ -31,7 +31,7 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState<boolean>(false);
 
   // Interactive Calculator state
-  const [simulatedHours, setSimulatedHours] = useState<number>(160);
+  const [simulatedHours, setSimulatedHours] = useState<number | string>(208);
 
   const fetchProfileData = async () => {
     if (!authUser) return;
@@ -133,7 +133,7 @@ export default function ProfilePage() {
   const remainingMinutes = totalMinutesWorked % 60;
   const exactHoursDecimal = totalMinutesWorked / 60;
 
-  // Compute Base Earned Pay
+  // Compute Base Earned Pay (208 hours / month standard = 26 days * 8h)
   const hourlyWage = user.hourlyWage ?? 0;
   const monthlySalary = user.monthlySalary ?? 0;
   const transportationAllowance = user.transportationAllowance ?? 0;
@@ -141,7 +141,7 @@ export default function ProfilePage() {
   const isFixed = user.employeeType === EmployeeType.FIXED;
 
   const baseEarnedPay = isFixed
-    ? (monthlySalary / 160) * exactHoursDecimal
+    ? (monthlySalary / 208) * exactHoursDecimal
     : exactHoursDecimal * hourlyWage;
 
   // Performance points impact ($1 per point bonus/deduction illustration)
@@ -149,9 +149,10 @@ export default function ProfilePage() {
   const totalEarnedCompensation = baseEarnedPay + transportationAllowance + recurringBonus + pointsImpact;
 
   // Simulated earnings
+  const simulatedHoursNum = Number(simulatedHours) || 0;
   const simulatedEarnings = isFixed
-    ? (simulatedHours / 160) * monthlySalary + transportationAllowance + recurringBonus + pointsImpact
-    : simulatedHours * hourlyWage + recurringBonus + pointsImpact;
+    ? (simulatedHoursNum / 208) * monthlySalary + transportationAllowance + recurringBonus + pointsImpact
+    : simulatedHoursNum * hourlyWage + recurringBonus + pointsImpact;
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
@@ -205,6 +206,8 @@ export default function ProfilePage() {
                   <img
                     src={getAssetUrl(user.photoUrl)}
                     alt={user.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-28 h-28 rounded-3xl object-cover border-4 border-indigo-500 shadow-xl ring-4 ring-white/10"
                   />
                 ) : (
@@ -225,10 +228,10 @@ export default function ProfilePage() {
                     {user.department}
                   </span>
                 )}
-                <span className={`badge px-3 py-1 rounded-full text-xs font-bold ${
+                <span className={`badge px-3 py-1 rounded-full text-xs font-extrabold ${
                   isFixed
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                    : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-sm'
                 }`}>
                   {isFixed ? '👔 Fixed Income' : '⏱️ Per-Hour'}
                 </span>
@@ -455,7 +458,20 @@ export default function ProfilePage() {
                     min="0"
                     max="400"
                     value={simulatedHours}
-                    onChange={(e) => setSimulatedHours(Number(e.target.value) || 0)}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setSimulatedHours('');
+                      } else {
+                        setSimulatedHours(Number(val));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (simulatedHours === '' || Number(simulatedHours) < 0) {
+                        setSimulatedHours(208);
+                      }
+                    }}
                     className="w-16 bg-transparent text-white font-black text-base text-right focus:outline-none"
                   />
                   <span className="text-xs text-slate-500">hrs/mo</span>
@@ -467,7 +483,7 @@ export default function ProfilePage() {
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Simulated Monthly Earnings</p>
                   <p className="text-sm text-slate-300">
-                    If you work <strong className="text-white font-bold">{simulatedHours} hours</strong> ({isFixed ? `Fixed ${monthlySalary} JOD/mo` : `Hourly ${hourlyWage.toFixed(2)} JOD/hr`})
+                    If you work <strong className="text-white font-bold">{simulatedHoursNum} hours</strong> ({isFixed ? `Fixed ${monthlySalary} JOD/mo` : `Hourly ${hourlyWage.toFixed(2)} JOD/hr`})
                   </p>
                 </div>
                 <div className="text-left sm:text-right">

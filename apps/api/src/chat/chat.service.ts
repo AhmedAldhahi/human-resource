@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -52,7 +52,7 @@ export class ChatService {
         photoUrl: conv.isGroup ? null : otherParticipant?.photoUrl,
         customStatus: conv.isGroup ? null : otherParticipant?.customStatus,
         lastMessage: conv.messages[0],
-        unreadCount: 0, // In a real app we'd count messages since lastReadAt, keeping it simple for MVP or we can compute it.
+        unreadCount: 0,
         lastReadAt: p.lastReadAt,
         updatedAt: conv.updatedAt,
         partnerId: conv.isGroup ? null : otherParticipant?.id,
@@ -82,6 +82,13 @@ export class ChatService {
   }
 
   async findOrCreateDirectConversation(user1Id: string, user2Id: string) {
+    if (!user2Id) {
+      throw new BadRequestException('Partner ID must be provided');
+    }
+    if (user1Id === user2Id) {
+      throw new BadRequestException('Cannot start a direct conversation with yourself');
+    }
+
     // Check if a direct conversation already exists between these two users
     const existingConvs = await this.prisma.conversation.findMany({
       where: {
@@ -112,12 +119,24 @@ export class ChatService {
   }
 
   async saveMessage(conversationId: string, senderId: string, content: string) {
+    if (!content || !content.trim()) {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
+    // Verify participation
+    const participant = await this.prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId, userId: senderId } },
+    });
+    if (!participant) {
+      throw new NotFoundException('You are not a participant in this conversation');
+    }
+
     // Save message
     const message = await this.prisma.message.create({
       data: {
         conversationId,
         senderId,
-        content,
+        content: content.trim(),
       },
       include: {
         sender: { select: { id: true, name: true, photoUrl: true } },

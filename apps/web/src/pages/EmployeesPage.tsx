@@ -247,6 +247,8 @@ export default function EmployeesPage() {
                             <img
                               src={getAssetUrl(emp.photoUrl)}
                               alt={emp.name}
+                              loading="lazy"
+                              decoding="async"
                               className="w-10 h-10 rounded-xl object-cover border border-emerald-500/40 shadow-md"
                             />
                           ) : (
@@ -294,14 +296,14 @@ export default function EmployeesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col gap-1 items-start">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${
                           emp.employeeType === EmployeeType.FIXED
                             ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                            : 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                            : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-sm'
                         }`}>
                           {emp.employeeType === EmployeeType.FIXED ? '👔 Fixed Income' : '⏱️ Per-Hour'}
                         </span>
-                        <span className="font-bold text-emerald-400 text-xs">
+                        <span className="font-extrabold text-emerald-500 text-xs tracking-tight">
                           {emp.employeeType === EmployeeType.FIXED
                             ? `${emp.monthlySalary ?? 0} JOD / mo`
                             : `${(emp.hourlyWage ?? 0).toFixed(2)} JOD / hr`}
@@ -310,7 +312,7 @@ export default function EmployeesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {emp.employeeType === EmployeeType.PER_HOUR ? (
-                        <span className="font-bold px-2.5 py-1 rounded-lg text-xs bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                        <span className="font-extrabold px-2.5 py-1 rounded-lg text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm">
                           Flexible Off Days
                         </span>
                       ) : (

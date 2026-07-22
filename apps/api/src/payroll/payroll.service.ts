@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   SavePayrollDto,
@@ -14,9 +14,15 @@ export class PayrollService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDraftPayroll(month: string): Promise<DraftPayrollDto[]> {
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      throw new BadRequestException('Month must be provided in YYYY-MM format (e.g. 2026-07)');
+    }
     const [year, monthStr] = month.split('-');
-    const startOfMonth = new Date(parseInt(year), parseInt(monthStr) - 1, 1);
-    const endOfMonth = new Date(parseInt(year), parseInt(monthStr), 0, 23, 59, 59);
+    const parsedYear = parseInt(year, 10);
+    const parsedMonth = parseInt(monthStr, 10);
+
+    const startOfMonth = new Date(parsedYear, parsedMonth - 1, 1);
+    const endOfMonth = new Date(parsedYear, parsedMonth, 0, 23, 59, 59, 999);
 
     const users = await this.prisma.user.findMany({
       where: { isActive: true },

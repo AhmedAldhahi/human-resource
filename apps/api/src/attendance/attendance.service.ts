@@ -54,16 +54,19 @@ export class AttendanceService {
     }
 
     const now = new Date();
-    const workStart = new Date(now);
-    workStart.setHours(9, 0, 0, 0);
+    const tz = process.env.TIMEZONE || 'Asia/Riyadh';
+    const nowLocalStr = now.toLocaleString('en-US', { timeZone: tz });
+    const nowLocal = new Date(nowLocalStr);
+    const workStartLocal = new Date(nowLocal);
+    workStartLocal.setHours(9, 0, 0, 0);
 
     let latePenalty = false;
     let penaltyMinutes = 0;
 
-    if (workLocation === WorkLocation.OFFICE && now > workStart) {
+    if (workLocation === WorkLocation.OFFICE && nowLocal > workStartLocal) {
       latePenalty = true;
       penaltyMinutes = Math.floor(
-        (now.getTime() - workStart.getTime()) / (1000 * 60),
+        (nowLocal.getTime() - workStartLocal.getTime()) / (1000 * 60),
       );
     }
 

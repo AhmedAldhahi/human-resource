@@ -27,13 +27,15 @@ const PageLoader = () => (
 );
 import { Role } from '@hrms/shared';
 import { ChatProvider } from '../context/ChatContext';
+import { ThemeProvider } from '../context/ThemeContext';
 
 export function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ChatProvider>
-          <React.Suspense fallback={<PageLoader />}>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <ChatProvider>
+            <React.Suspense fallback={<PageLoader />}>
             <Routes>
           {/* Public */}
           <Route path="/" element={<LoginPage />} />
@@ -127,7 +129,8 @@ export function App() {
         </ChatProvider>
       </AuthProvider>
     </BrowserRouter>
-  );
+  </ThemeProvider>
+);
 }
 
 export default App;

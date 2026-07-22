@@ -2,6 +2,8 @@ import React, { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+import ThemeSwitcher from '../components/ThemeSwitcher';
+
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
   const [email, setEmail] = useState('');
@@ -11,7 +13,7 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
@@ -28,16 +30,24 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message || 'Invalid email or password. Please try again.'
-      );
+      if (err?.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (!err?.response) {
+        setError('Cannot connect to backend API server. Please ensure the backend server is running.');
+      } else {
+        setError('Invalid email or password. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Top right Theme Switcher */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeSwitcher compact />
+      </div>
       {/* Background effects */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />

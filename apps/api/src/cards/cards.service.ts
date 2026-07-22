@@ -1,14 +1,44 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   IssueCardDto,
   CardResponseDto,
   CARD_POINT_VALUES,
 } from '@hrms/shared';
+import { PresenceGateway } from '../presence/presence.gateway';
 
 @Injectable()
 export class CardsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly presenceGateway?: PresenceGateway,
+  ) {}
+
+  private async recalculateUserPoints(employeeId: string): Promise<number> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const monthCards = await this.prisma.performanceCard.findMany({
+      where: {
+        employeeId,
+        issuedAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      select: { cardType: true },
+    });
+
+    const currentMonthNet = monthCards.reduce(
+      (sum, c) => sum + (CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0),
+      0,
+    );
+
+    await this.prisma.user.update({
+      where: { id: employeeId },
+      data: { netCardPoints: currentMonthNet },
+    });
+
+    return currentMonthNet;
+  }
 
   async issueCard(
     issuerId: string,
@@ -27,29 +57,8 @@ export class CardsService {
       },
     });
 
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-    const monthCards = await this.prisma.performanceCard.findMany({
-      where: {
-        employeeId: dto.employeeId,
-        issuedAt: { gte: startOfMonth, lte: endOfMonth },
-      },
-      select: { cardType: true },
-    });
-
-    const currentMonthNet = monthCards.reduce(
-      (sum, c) => sum + (CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0),
-      0,
-    );
-
-    await this.prisma.user.update({
-      where: { id: dto.employeeId },
-      data: {
-        netCardPoints: currentMonthNet,
-      },
-    });
+    await this.recalculateUserPoints(dto.employeeId);
+    this.presenceGateway?.broadcastPresenceUpdate();
 
     return {
       id: card.id,
@@ -112,6 +121,8 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
     await this.prisma.performanceCard.delete({ where: { id } });
+    await this.recalculateUserPoints(card.employeeId);
+    this.presenceGateway?.broadcastPresenceUpdate();
     return { success: true };
   }
 }

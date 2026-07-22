@@ -89,7 +89,8 @@ export class ReportsService {
 
   async getPayrollSummary(year?: number, month?: number): Promise<PayrollItemDto[]> {
     const targetYear = year ?? new Date().getFullYear();
-    const targetMonth = month ?? new Date().getMonth(); // 0-indexed
+    // month is expected to be 1-indexed from API callers (1 = Jan, 12 = Dec)
+    const targetMonth = month !== undefined ? month - 1 : new Date().getMonth();
 
     const startOfMonth = new Date(targetYear, targetMonth, 1);
     const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);

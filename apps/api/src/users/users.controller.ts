@@ -143,8 +143,11 @@ export class UsersController {
   async updateWage(
     @Param('id') id: string,
     @Body() dto: UpdateWageDto,
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { userId: string; role: Role } },
   ): Promise<UserResponseDto> {
+    if (dto.role === Role.ADMIN && req.user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only Administrators can assign the ADMIN role.');
+    }
     const user = await this.usersService.updateWage(id, dto);
     await this.auditService.logAction(
       req.user.userId,

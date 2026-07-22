@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DraftPayrollDto, EmployeeType, PayrollStatus } from '@hrms/shared';
 import { payrollApi } from '../api/client';
 
@@ -91,7 +92,7 @@ export default function WageProcessingModal({ isOpen, onClose, draft, month, onS
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
       
@@ -120,7 +121,16 @@ export default function WageProcessingModal({ isOpen, onClose, draft, month, onS
                 step="0.5"
                 min="0"
                 value={approvedHours}
-                onChange={(e) => setApprovedHours(Number(e.target.value) || 0)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setApprovedHours(val === '' ? ('' as any) : Number(val));
+                }}
+                onBlur={() => {
+                  if (approvedHours === ('' as any) || Number(approvedHours) < 0) {
+                    setApprovedHours(draft.trackedHours);
+                  }
+                }}
                 className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-1.5 text-white font-bold"
               />
             </div>
@@ -183,7 +193,8 @@ export default function WageProcessingModal({ isOpen, onClose, draft, month, onS
                       type="number"
                       min="0"
                       value={b.amount || ''}
-                      onChange={(e) => { const newB = [...bonuses]; newB[idx].amount = Number(e.target.value); setBonuses(newB); }}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => { const newB = [...bonuses]; newB[idx].amount = e.target.value === '' ? 0 : Number(e.target.value); setBonuses(newB); }}
                       className="w-1/3 bg-slate-950 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:border-emerald-500/50"
                       placeholder="0.00"
                     />
@@ -212,7 +223,8 @@ export default function WageProcessingModal({ isOpen, onClose, draft, month, onS
                       type="number"
                       min="0"
                       value={d.amount || ''}
-                      onChange={(e) => { const newD = [...deductions]; newD[idx].amount = Number(e.target.value); setDeductions(newD); }}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => { const newD = [...deductions]; newD[idx].amount = e.target.value === '' ? 0 : Number(e.target.value); setDeductions(newD); }}
                       className="w-1/3 bg-slate-950 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:border-red-500/50"
                       placeholder="0.00"
                     />
@@ -264,6 +276,7 @@ export default function WageProcessingModal({ isOpen, onClose, draft, month, onS
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -17,7 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server!: Server;
+  server?: Server;
 
   // Map to keep track of connected users: userId -> socketId[]
   private connectedUsers = new Map<string, string[]>();
@@ -113,10 +113,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join_conversation')
-  handleJoinConversation(
+  async handleJoinConversation(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { conversationId: string },
   ) {
-    client.join(`conversation_${payload.conversationId}`);
+    const userId = client.data.userId;
+    if (!userId || !payload?.conversationId) return;
+
+    try {
+      // Verify user is a participant before joining room
+      await this.chatService.getConversationMessages(payload.conversationId, userId);
+      client.join(`conversation_${payload.conversationId}`);
+    } catch {
+      // User is not a participant, do not join room
+    }
   }
 }

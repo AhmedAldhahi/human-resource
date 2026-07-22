@@ -128,7 +128,7 @@ export default function PayrollManagementPage() {
                   <tr key={d.userId} className="hover:bg-white/5">
                     <td className="px-6 py-4 font-bold text-white">{d.name}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${d.employeeType === EmployeeType.FIXED ? 'bg-indigo-500/20 text-indigo-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold ${d.employeeType === EmployeeType.FIXED ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-sm'}`}>
                         {d.employeeType}
                       </span>
                     </td>

@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { AuditService } from '../audit/audit.service';
@@ -33,6 +34,9 @@ export class CardsController {
     @Request() req: { user: { userId: string; email: string; role: Role } },
     @Body() issueCardDto: IssueCardDto,
   ): Promise<CardResponseDto> {
+    if (issueCardDto.employeeId === req.user.userId) {
+      throw new BadRequestException('You cannot issue a performance card to yourself.');
+    }
     const card = await this.cardsService.issueCard(req.user.userId, issueCardDto);
     await this.auditService.logAction(
       req.user.userId,

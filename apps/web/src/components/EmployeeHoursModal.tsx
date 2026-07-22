@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { attendanceApi, usersApi, trackerApi } from '../api/client';
 import { AttendanceResponseDto, AttendanceStatus, Role, TrackerDailyReportDto } from '@hrms/shared';
 import { useAuth } from '../context/AuthContext';
@@ -376,7 +377,7 @@ export default function EmployeeHoursModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
       {/* Wider Modal Container (max-w-[1450px]) */}
       <div className="glass-card border border-white/10 w-full max-w-[1450px] w-[97vw] max-h-[94vh] flex flex-col overflow-hidden shadow-2xl rounded-2xl">
@@ -691,6 +692,7 @@ export default function EmployeeHoursModal({
                                       type="number"
                                       step="any"
                                       value={editForm.completedTasksCount}
+                                      onFocus={(e) => e.target.select()}
                                       onChange={(e) => setEditForm({ ...editForm, completedTasksCount: e.target.value })}
                                       className="input-field text-xs py-1 px-2 bg-slate-950 border-emerald-500/30 font-mono text-emerald-300 w-full"
                                       placeholder="Count"
@@ -1041,6 +1043,7 @@ export default function EmployeeHoursModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,96 +1,158 @@
-# Hrms
+<div align="center">
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+# ⚡ Enterprise HRMS Platform
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+**A Next-Generation, Full-Stack Human Resource Management System**
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma_ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Nx](https://img.shields.io/badge/Nx_Monorepo-14171F?style=for-the-badge&logo=nx&logoColor=white)
 
-## Run tasks
+---
 
-To run tasks with Nx use:
+</div>
 
-```sh
-npx nx <target> <project-name>
+## 🌟 Overview
+
+The **Enterprise HRMS Platform** is a powerful, modern, monorepo-backed Human Resource Management solution built with **NestJS**, **React 19**, **Prisma ORM**, and **Nx**. Designed for high aesthetics and real-time collaboration, it provides complete organizational governance across employee profiles, presence/attendance tracking, card issuance, payroll, real-time messaging, and audit logging.
+
+---
+
+## 🎨 Key Features
+
+- 💎 **Vibrant Multi-Theme System**: Live UI theme switcher featuring 4 vibrant presets (**Neon Cyber**, **Sunset Flame**, **Aurora Emerald**, and **Violet Pulse**) with dynamic glassmorphism and CSS custom property design tokens.
+- 🔐 **Role-Based Security**: Strict JWT-based authentication supporting **Admin**, **HR**, and **Employee** privilege levels.
+- 👥 **Employee Governance**: Complete directory, attendance logs, absence requests, wage calculations, and profile customization.
+- 💳 **Smart Card System**: Issue, manage, and audit RFID/NFC employee cards.
+- 💬 **Real-Time Communication**: Instant messaging and presence detection powered by **Socket.io**.
+- 📈 **Payroll & Audit Logs**: Detailed salary processing and immutable system audit logging.
+- 🖥️ **PC Tracker Integration**: Monitor system activity and computer hardware usage.
+
+---
+
+## 🛠️ Tech Stack
+
+| Tier | Technologies |
+| :--- | :--- |
+| **Frontend** | React 19, Vite, TailwindCSS, Chart.js, React Router v6, Socket.io Client |
+| **Backend** | NestJS, Passport.js JWT, WebSockets, Prisma ORM, Express |
+| **Database** | PostgreSQL (Supabase Pooler / Managed DB) |
+| **Workspace** | Nx Monorepo (`apps/api`, `apps/web`, `libs/shared`) |
+
+---
+
+## 📋 Prerequisites
+
+Before running the application, ensure you have the following installed:
+
+- **Node.js**: `v18.x` or `v20.x` (Recommended: `v20.10.0+`)
+- **npm**: `v9.x` or `v10.x`
+- **PostgreSQL Database**: A running local instance or a cloud database (e.g. Supabase).
+
+---
+
+## ⚙️ Environment Setup
+
+Create a `.env` file in the project root directory (`hrms/.env`):
+
+```env
+# Database Connections
+DATABASE_URL="postgresql://postgres:password@localhost:5432/hrms?pgbouncer=true"
+DIRECT_URL="postgresql://postgres:password@localhost:5432/hrms"
+
+# JWT Authentication
+JWT_SECRET="hrms-super-secret-jwt-key-change-in-production"
+
+# External APIs & Integration
+TRACKER_API_URL="https://voadera-analytics-api.onrender.com"
+TRACKER_ADMIN_PASSWORD="YourTrackerAdminPassword"
+SUPABASE_URL="https://your-supabase-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+
+# Timezone Configuration
+TIMEZONE="Asia/Riyadh"
 ```
 
-For example:
+---
 
-```sh
-npx nx build myproject
+## 🚀 How to Run the Application
+
+You can launch both the **Frontend** and **Backend** simultaneously with a single command!
+
+### 1️⃣ Run Both Frontend & Backend (Recommended)
+
+To start both the NestJS API (Backend) and React Vite App (Frontend) in development mode:
+
+```bash
+npm run dev
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+> ⚡ **Access URLs**:
+> - **Frontend (Web App)**: `http://localhost:4200`
+> - **Backend API**: `http://localhost:3000/api`
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Add new projects
+### 2️⃣ Run Frontend or Backend Individually
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+If you prefer to run services in separate terminal windows:
 
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
+#### Start Backend API Only:
+```bash
+npm run dev:api
 ```
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
-
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
-
-# Generate a library
-npx nx g @nx/react:lib some-lib
+#### Start Frontend Web App Only:
+```bash
+npm run dev:web
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+---
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 🗄️ Database Setup & Management (Prisma)
 
-## Set up CI!
+To initialize, migrate, or seed the database:
 
-### Step 1
+```bash
+# 1. Generate Prisma Client
+npm run db:generate
 
-To connect to Nx Cloud, run the following command:
+# 2. Run Database Migrations
+npm run db:migrate
 
-```sh
-npx nx connect
+# 3. Seed Initial Demo Data (Admin & Employee accounts)
+npm run db:seed
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+---
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 🏗️ Project Architecture
 
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+```
+hrms/
+├── apps/
+│   ├── api/                  # NestJS Backend Application
+│   │   ├── prisma/           # Database Schema & Seed Data
+│   │   └── src/              # Controllers, Services, Auth & WebSockets
+│   └── web/                  # React 19 + Vite Frontend Application
+│       └── src/
+│           ├── components/   # UI Components & Theme Switcher
+│           ├── context/      # Auth, Chat & Vibrant Theme Contexts
+│           ├── pages/        # Dashboard, Employees, Payroll, Chat
+│           └── styles.css    # CSS Variable Design Tokens & Themes
+├── libs/
+│   └── shared/               # Shared DTOs, Enums, Interfaces & Types
+├── nx.json                   # Nx Monorepo Configuration
+└── package.json              # Scripts & Dependencies
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Install Nx Console
+## 📄 License & Ownership
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Copyright © 2026 **Ahmed Aldhahi**. All Rights Reserved.  
+PROPRIETARY AND CONFIDENTIAL.

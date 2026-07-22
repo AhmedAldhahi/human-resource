@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { Role } from '@hrms/shared';
+import ThemeSwitcher from './ThemeSwitcher';
 
 /* ── Inline SVG Icons ──────────────────────────────────────────────────── */
 const icons = {
@@ -82,6 +83,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
   ),
+  card: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  ),
 };
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -104,7 +110,11 @@ function roleBadgeClasses(role: Role): string {
   }
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  onNavItemClick?: () => void;
+}
+
+export default function Sidebar({ onNavItemClick }: SidebarProps) {
   const { user, logout } = useAuth();
   const { unreadTotal } = useChat();
 
@@ -144,16 +154,18 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="glass-sidebar w-64 min-h-screen flex flex-col justify-between py-6 px-4">
+    <aside className="glass-sidebar w-64 h-full flex flex-col justify-between py-6 px-4 overflow-y-auto">
       {/* Brand */}
       <div>
-        <div className="px-3 mb-10">
-          <h1 className="text-2xl font-extrabold tracking-tight gradient-text">
-            HRMS
-          </h1>
-          <p className="text-[11px] text-slate-500 mt-1 tracking-widest uppercase">
-            Human Resource System
-          </p>
+        <div className="px-3 mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight gradient-text">
+              HRMS
+            </h1>
+            <p className="text-[11px] text-slate-500 mt-1 tracking-widest uppercase">
+              Human Resource System
+            </p>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -163,6 +175,7 @@ export default function Sidebar() {
               key={item.to}
               to={item.to}
               end={item.to === '/dashboard'}
+              onClick={() => onNavItemClick?.()}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                   isActive
@@ -187,12 +200,14 @@ export default function Sidebar() {
 
       {/* User info & Logout */}
       <div className="px-2">
-        <div className="glass-card p-4 space-y-3">
+        <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl p-4 space-y-3">
           <div className="flex items-center gap-3">
             {user.photoUrl ? (
               <img
                 src={getAssetUrl(user.photoUrl)}
                 alt={user.name}
+                loading="lazy"
+                decoding="async"
                 className="w-9 h-9 rounded-full object-cover border border-emerald-500 flex-shrink-0 shadow-md"
               />
             ) : (
@@ -210,6 +225,10 @@ export default function Sidebar() {
                 {user.role}
               </span>
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-white/10">
+            <ThemeSwitcher dropPosition="up" />
           </div>
 
           <button

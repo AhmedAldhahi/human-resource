@@ -16,7 +16,7 @@ import { PresenceService } from './presence.service';
 })
 export class PresenceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server!: Server;
+  server?: Server;
 
   constructor(private readonly presenceService: PresenceService) {}
 

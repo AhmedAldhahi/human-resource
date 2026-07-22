@@ -9,6 +9,7 @@ import {
   WorkLocation,
   AbsenceStatus,
   Role,
+  CARD_POINT_VALUES,
 } from '@hrms/shared';
 
 @Injectable()
@@ -20,6 +21,25 @@ export class PresenceService {
       where: { isActive: true },
       orderBy: { name: 'asc' },
     });
+
+    // Get current month performance cards to calculate live points dynamically
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const monthCards = await this.prisma.performanceCard.findMany({
+      where: {
+        issuedAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      select: { employeeId: true, cardType: true },
+    });
+
+    const pointsMap = new Map<string, number>();
+    for (const c of monthCards) {
+      const current = pointsMap.get(c.employeeId) || 0;
+      const pointVal = CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0;
+      pointsMap.set(c.employeeId, current + pointVal);
+    }
 
     // Get all currently open attendance records
     const openAttendances = await this.prisma.attendance.findMany({
@@ -91,7 +111,7 @@ export class PresenceService {
         customEmoji: user.customEmoji ?? null,
         absenceType,
         absenceReason,
-        netCardPoints: user.netCardPoints ?? 0,
+        netCardPoints: pointsMap.get(user.id) ?? 0,
       };
     });
 

@@ -112,26 +112,6 @@ export class AbsenceService {
       include: { user: true },
     });
 
-    // If EARLY_LEAVE, process 4-hour (240m) accumulation right away
-    if (dto.type === AbsenceType.EARLY_LEAVE && earlyMinutes && earlyMinutes > 0) {
-      const newAccumulated = user.earlyLeaveMinutesAccumulated + earlyMinutes;
-      const daysToSubtract = Math.floor(newAccumulated / 240);
-      const remainingAccumulated = newAccumulated % 240;
-
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          earlyLeaveMinutesAccumulated: remainingAccumulated,
-          ...(daysToSubtract > 0
-            ? {
-                vacationDaysLeft: Math.max(0, user.vacationDaysLeft - daysToSubtract),
-                absenceDaysLeft: Math.max(0, user.absenceDaysLeft - daysToSubtract),
-              }
-            : {}),
-        },
-      });
-    }
-
     this.presenceGateway?.broadcastPresenceUpdate();
 
     return this.mapRecord(record);
@@ -174,7 +154,7 @@ export class AbsenceService {
           await this.prisma.user.update({
             where: { id: record.userId },
             data: {
-              sickDaysLeft: record.user.sickDaysLeft - 1,
+              sickDaysLeft: Math.max(0, record.user.sickDaysLeft - 1),
               absenceDaysLeft: Math.max(0, record.user.absenceDaysLeft - 1),
             },
           });
@@ -187,7 +167,7 @@ export class AbsenceService {
           await this.prisma.user.update({
             where: { id: record.userId },
             data: {
-              vacationDaysLeft: record.user.vacationDaysLeft - 1,
+              vacationDaysLeft: Math.max(0, record.user.vacationDaysLeft - 1),
               absenceDaysLeft: Math.max(0, record.user.absenceDaysLeft - 1),
             },
           });
@@ -195,6 +175,24 @@ export class AbsenceService {
         } else {
           isPaid = false;
         }
+      } else if (record.type === AbsenceType.EARLY_LEAVE && record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0) {
+        const user = record.user;
+        const newAccumulated = user.earlyLeaveMinutesAccumulated + record.earlyLeaveMinutes;
+        const daysToSubtract = Math.floor(newAccumulated / 240);
+        const remainingAccumulated = newAccumulated % 240;
+
+        await this.prisma.user.update({
+          where: { id: record.userId },
+          data: {
+            earlyLeaveMinutesAccumulated: remainingAccumulated,
+            ...(daysToSubtract > 0
+              ? {
+                  vacationDaysLeft: Math.max(0, user.vacationDaysLeft - daysToSubtract),
+                  absenceDaysLeft: Math.max(0, user.absenceDaysLeft - daysToSubtract),
+                }
+              : {}),
+          },
+        });
       }
     } else if (record.status === AbsenceStatus.APPROVED && status !== AbsenceStatus.APPROVED) {
       // Reverting an approved paid absence back -> refund day
@@ -203,16 +201,16 @@ export class AbsenceService {
           await this.prisma.user.update({
             where: { id: record.userId },
             data: {
-              sickDaysLeft: record.user.sickDaysLeft + 1,
-              absenceDaysLeft: record.user.absenceDaysLeft + 1,
+              sickDaysLeft: Math.min(14, record.user.sickDaysLeft + 1),
+              absenceDaysLeft: Math.min(28, record.user.absenceDaysLeft + 1),
             },
           });
         } else if (record.type === AbsenceType.VACATION || record.type === AbsenceType.REGULAR) {
           await this.prisma.user.update({
             where: { id: record.userId },
             data: {
-              vacationDaysLeft: record.user.vacationDaysLeft + 1,
-              absenceDaysLeft: record.user.absenceDaysLeft + 1,
+              vacationDaysLeft: Math.min(14, record.user.vacationDaysLeft + 1),
+              absenceDaysLeft: Math.min(28, record.user.absenceDaysLeft + 1),
             },
           });
         }

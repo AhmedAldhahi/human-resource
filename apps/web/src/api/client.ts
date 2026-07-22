@@ -1,4 +1,3 @@
-import { getAssetUrl, getSocketUrl } from '../api/client';
 import axios from 'axios';
 import type {
   LoginDto,
@@ -29,7 +28,6 @@ import type {
   DraftPayrollDto,
   SavePayrollDto,
   PayrollRecordDto,
-  PayrollRecordResponseDto,
   AuditLogResponseDto,
 } from '@hrms/shared';
 
@@ -296,8 +294,8 @@ export const presenceApi = {
     return data;
   },
 
-  getStats: async (): Promise<any> => {
-    const { data } = await apiClient.get<any>('/reports/stats');
+  getStats: async (): Promise<PresenceStatsDto> => {
+    const { data } = await apiClient.get<PresenceStatsDto>('/presence/stats');
     return data;
   },
 

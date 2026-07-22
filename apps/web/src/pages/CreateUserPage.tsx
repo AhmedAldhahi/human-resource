@@ -11,8 +11,8 @@ export default function CreateUserPage() {
   const [role, setRole] = useState<Role>(Role.EMPLOYEE);
   const [department, setDepartment] = useState('');
   const [employeeType, setEmployeeType] = useState<EmployeeType>(EmployeeType.FIXED);
-  const [monthlySalary, setMonthlySalary] = useState<number>(3000);
-  const [hourlyWage, setHourlyWage] = useState<number>(20);
+  const [monthlySalary, setMonthlySalary] = useState<number | string>(3000);
+  const [hourlyWage, setHourlyWage] = useState<number | string>(20);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -207,7 +207,16 @@ export default function CreateUserPage() {
                   type="number"
                   step="any"
                   value={monthlySalary}
-                  onChange={(e) => setMonthlySalary(Number(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMonthlySalary(val === '' ? '' : Number(val));
+                  }}
+                  onBlur={() => {
+                    if (monthlySalary === '' || Number(monthlySalary) < 0) {
+                      setMonthlySalary(0);
+                    }
+                  }}
                   className="input-field font-bold text-emerald-400"
                   placeholder="3000"
                 />
@@ -221,7 +230,16 @@ export default function CreateUserPage() {
                   type="number"
                   step="any"
                   value={hourlyWage}
-                  onChange={(e) => setHourlyWage(Number(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setHourlyWage(val === '' ? '' : Number(val));
+                  }}
+                  onBlur={() => {
+                    if (hourlyWage === '' || Number(hourlyWage) < 0) {
+                      setHourlyWage(0);
+                    }
+                  }}
                   className="input-field font-bold text-emerald-400"
                   placeholder="20"
                 />

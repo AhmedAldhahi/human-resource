@@ -1,5 +1,6 @@
 import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usersApi } from '../api/client';
 import { Role, EmployeeType, UserResponseDto } from '@hrms/shared';
 
@@ -24,10 +25,10 @@ export default function EmployeeWageModal({
 
   // Form fields
   const [employeeType, setEmployeeType] = useState<EmployeeType>(EmployeeType.FIXED);
-  const [monthlySalary, setMonthlySalary] = useState<number>(0);
-  const [transportationAllowance, setTransportationAllowance] = useState<number>(0);
-  const [recurringBonus, setRecurringBonus] = useState<number>(0);
-  const [hourlyWage, setHourlyWage] = useState<number>(0);
+  const [monthlySalary, setMonthlySalary] = useState<number | string>(0);
+  const [transportationAllowance, setTransportationAllowance] = useState<number | string>(0);
+  const [recurringBonus, setRecurringBonus] = useState<number | string>(0);
+  const [hourlyWage, setHourlyWage] = useState<number | string>(0);
   const [role, setRole] = useState<Role>(Role.EMPLOYEE);
   const [department, setDepartment] = useState<string>('');
   const [tsUsername, setTsUsername] = useState<string>('');
@@ -78,7 +79,7 @@ export default function EmployeeWageModal({
     setSuccessMsg('');
 
     try {
-      if (hourlyWage < 0 || monthlySalary < 0) {
+      if (Number(hourlyWage) < 0 || Number(monthlySalary) < 0) {
         setError('Salary and wage rates cannot be negative.');
         setSaveLoading(false);
         return;
@@ -148,11 +149,13 @@ export default function EmployeeWageModal({
     }
   };
 
-  // Projected calculations
-  const projectedMonthlyFromHourly = hourlyWage * 160;
-  const projectedAnnualFromMonthly = monthlySalary * 12;
+  // Projected calculations (208 hours standard = 26 days * 8h)
+  const hourlyWageNum = Number(hourlyWage) || 0;
+  const monthlySalaryNum = Number(monthlySalary) || 0;
+  const projectedMonthlyFromHourly = hourlyWageNum * 208;
+  const projectedAnnualFromMonthly = monthlySalaryNum * 12;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
       <div className="glass-card border border-white/10 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl rounded-2xl">
         {/* Header */}
@@ -163,6 +166,8 @@ export default function EmployeeWageModal({
                 <img
                   src={getAssetUrl(user.photoUrl)}
                   alt={user.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shadow-lg"
                 />
               ) : (
@@ -309,7 +314,16 @@ export default function EmployeeWageModal({
                       step="any"
                       min="0"
                       value={monthlySalary}
-                      onChange={(e) => setMonthlySalary(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setMonthlySalary(val === '' ? '' : Number(val));
+                      }}
+                      onBlur={() => {
+                        if (monthlySalary === '' || Number(monthlySalary) < 0) {
+                          setMonthlySalary(0);
+                        }
+                      }}
                       className="input-field pl-12 pr-16 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
                       placeholder="0.00"
                     />
@@ -317,9 +331,9 @@ export default function EmployeeWageModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-emerald-500/20 text-xs mt-3">
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
-                      <span className="text-slate-400 block font-medium">Equiv. Hourly (160h)</span>
+                      <span className="text-slate-400 block font-medium">Equiv. Hourly (208h)</span>
                       <span className="text-base font-extrabold text-emerald-300 mt-0.5 block">
-                        {(monthlySalary / 160).toFixed(2)} JOD / hr
+                        {(monthlySalaryNum / 208).toFixed(2)} JOD / hr
                       </span>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
@@ -340,7 +354,16 @@ export default function EmployeeWageModal({
                         step="any"
                         min="0"
                         value={transportationAllowance}
-                        onChange={(e) => setTransportationAllowance(Number(e.target.value) || 0)}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTransportationAllowance(val === '' ? '' : Number(val));
+                        }}
+                        onBlur={() => {
+                          if (transportationAllowance === '' || Number(transportationAllowance) < 0) {
+                            setTransportationAllowance(0);
+                          }
+                        }}
                         className="input-field pl-12 pr-16 py-3 text-xl font-bold text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
                         placeholder="0.00"
                       />
@@ -360,7 +383,16 @@ export default function EmployeeWageModal({
                       step="any"
                       min="0"
                       value={hourlyWage}
-                      onChange={(e) => setHourlyWage(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setHourlyWage(val === '' ? '' : Number(val));
+                      }}
+                      onBlur={() => {
+                        if (hourlyWage === '' || Number(hourlyWage) < 0) {
+                          setHourlyWage(0);
+                        }
+                      }}
                       className="input-field pl-12 pr-14 py-3 text-2xl font-black text-white bg-slate-900/90 border-emerald-500/40 focus:border-emerald-400"
                       placeholder="0.00"
                     />
@@ -368,13 +400,13 @@ export default function EmployeeWageModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-emerald-500/20 text-xs mt-3">
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
-                      <span className="text-slate-400 block font-medium">Projected Monthly (160h)</span>
+                      <span className="text-slate-400 block font-medium">Projected Monthly (208h)</span>
                       <span className="text-base font-extrabold text-emerald-300 mt-0.5 block">
                         {projectedMonthlyFromHourly.toFixed(2)} JOD
                       </span>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5">
-                      <span className="text-slate-400 block font-medium">Projected Annual (1,920h)</span>
+                      <span className="text-slate-400 block font-medium">Projected Annual (2,496h)</span>
                       <span className="text-base font-extrabold text-white mt-0.5 block">
                         {(projectedMonthlyFromHourly * 12).toFixed(2)} JOD
                       </span>
@@ -394,7 +426,16 @@ export default function EmployeeWageModal({
                     step="any"
                     min="0"
                     value={recurringBonus}
-                    onChange={(e) => setRecurringBonus(Number(e.target.value) || 0)}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRecurringBonus(val === '' ? '' : Number(val));
+                    }}
+                    onBlur={() => {
+                      if (recurringBonus === '' || Number(recurringBonus) < 0) {
+                        setRecurringBonus(0);
+                      }
+                    }}
                     className="input-field pl-12 pr-16 py-3 text-xl font-bold text-white bg-slate-900/90 border-indigo-500/40 focus:border-indigo-400"
                     placeholder="0.00"
                   />
@@ -473,6 +514,7 @@ export default function EmployeeWageModal({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -438,7 +438,7 @@ export default function PresencePage() {
         </div>
 
         {/* Search and Department Filter */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
           {departments.length > 0 && (
             <select
               value={departmentFilter}
