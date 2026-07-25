@@ -71,12 +71,29 @@ export class TrackerService {
       return;
     }
     try {
+      const cleanUsername = tsUsername.trim().toLowerCase();
+      let targetId = tsUsername.trim();
+
+      try {
+        const employees = await this.getEmployees();
+        const found = employees.find(
+          (e: any) =>
+            (e.windowsId && e.windowsId.toLowerCase() === cleanUsername) ||
+            (e.name && e.name.toLowerCase() === cleanUsername)
+        );
+        if (found?.id) {
+          targetId = found.id;
+        }
+      } catch (lookupErr: any) {
+        console.warn(`⚠️ [TRACKER SYNC] Could not fetch tracker employees list, falling back to direct ID:`, lookupErr?.message);
+      }
+
       const payload = inOffice
         ? { inOfficeToday: true, officeCheckInTime: timestamp.toISOString() }
         : { inOfficeToday: false, officeCheckOutTime: timestamp.toISOString() };
 
-      await this.request('PATCH', `/employees/${encodeURIComponent(tsUsername.trim())}`, payload);
-      console.log(`📡 [TRACKER SYNC] Successfully synced office status for ${tsUsername}: inOffice=${inOffice}`);
+      await this.request('PATCH', `/employees/${encodeURIComponent(targetId)}`, payload);
+      console.log(`📡 [TRACKER SYNC] Successfully synced office status for ${tsUsername} (ID: ${targetId}): inOffice=${inOffice}`);
     } catch (error: any) {
       console.warn(`⚠️ [TRACKER SYNC WARNING] Failed to sync office status for ${tsUsername}:`, error?.message || error);
     }
