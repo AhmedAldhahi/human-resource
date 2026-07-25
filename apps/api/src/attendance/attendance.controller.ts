@@ -5,6 +5,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
   ForbiddenException,
@@ -64,6 +65,15 @@ export class AttendanceController {
   @Roles(Role.ADMIN, Role.HR)
   async getPendingExceptions(): Promise<AttendanceResponseDto[]> {
     return this.attendanceService.getPendingExceptions();
+  }
+
+  @Get('exceptions/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async getAllExceptions(
+    @Query('status') status?: string,
+  ): Promise<AttendanceResponseDto[]> {
+    return this.attendanceService.getAllExceptions(status);
   }
 
   @Patch('exceptions/:id/resolve')

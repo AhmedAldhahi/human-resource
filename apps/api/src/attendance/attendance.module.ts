@@ -3,9 +3,10 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceController } from './attendance.controller';
 import { PresenceModule } from '../presence/presence.module';
 import { AuditModule } from '../audit/audit.module';
+import { TrackerModule } from '../tracker/tracker.module';
 
 @Module({
-  imports: [PresenceModule, AuditModule],
+  imports: [PresenceModule, AuditModule, TrackerModule],
   providers: [AttendanceService],
   controllers: [AttendanceController],
 })

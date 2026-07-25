@@ -193,6 +193,12 @@ export const attendanceApi = {
     return data;
   },
 
+  getAllExceptions: async (status?: string): Promise<AttendanceResponseDto[]> => {
+    const query = status ? `?status=${status}` : '';
+    const { data } = await apiClient.get<AttendanceResponseDto[]>(`/attendance/exceptions/all${query}`);
+    return data;
+  },
+
   resolveException: async (id: string, status: 'ACCEPTED' | 'REJECTED'): Promise<AttendanceResponseDto> => {
     const { data } = await apiClient.patch<AttendanceResponseDto>(`/attendance/exceptions/${id}/resolve`, { status });
     return data;

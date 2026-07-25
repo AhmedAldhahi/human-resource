@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { attendanceApi } from '../api/client';
-import { AttendanceStatus, WorkLocation } from '@hrms/shared';
-import { AttendanceResponseDto } from '@hrms/shared';
+import { AttendanceStatus, WorkLocation, Role } from '@hrms/shared';
+import type { AttendanceResponseDto } from '@hrms/shared';
 import { useAuth } from '../context/AuthContext';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 
@@ -9,22 +9,32 @@ const MIN_CHARS = 15;
 
 export default function AttendancePage() {
   const { user } = useAuth();
+  const isHrOrAdmin = user?.role === Role.HR || user?.role === Role.ADMIN;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [records, setRecords] = useState<AttendanceResponseDto[]>([]);
+  const [allExceptions, setAllExceptions] = useState<AttendanceResponseDto[]>([]);
+  const [exceptionTab, setExceptionTab] = useState<'PENDING' | 'ACCEPTED' | 'REJECTED' | 'ALL'>('PENDING');
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState('');
   const [workLocation, setWorkLocation] = useState<WorkLocation>(WorkLocation.OFFICE);
   const [completedTasksCount, setCompletedTasksCount] = useState<string>('');
   const [clockOutNote, setClockOutNote] = useState<string>('');
   const [authorizationName, setAuthorizationName] = useState<string>('');
-  const [needsAuthorization, setNeedsAuthorization] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const fetchRecords = async () => {
     try {
       const data = await attendanceApi.getMyAttendance();
       setRecords(data);
+
+      if (isHrOrAdmin) {
+        const exceptions = await attendanceApi.getAllExceptions('ALL');
+        setAllExceptions(exceptions);
+      }
     } catch {
       // ignore
     } finally {
@@ -34,14 +44,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     fetchRecords();
-  }, []);
+  }, [user]);
 
-  // Determine current status from most recent record
-  const todayStr = new Date().toDateString();
+  // Determine current active record (works across midnight!)
   const activeRecord = records.find(
-    (r) =>
-      r.status === AttendanceStatus.CLOCKED_IN &&
-      new Date(r.clockInTime).toDateString() === todayStr
+    (r) => r.status === AttendanceStatus.CLOCKED_IN || !r.clockOutTime
   );
   const isClockedIn = !!activeRecord;
 
@@ -54,6 +61,7 @@ export default function AttendancePage() {
 
   const handleClockIn = async () => {
     setError('');
+    setSuccessMsg('');
     setActionLoading(true);
     try {
       await attendanceApi.clockIn({ intendedTask: task, workLocation });
@@ -66,35 +74,69 @@ export default function AttendancePage() {
     }
   };
 
-  const handleClockOut = async () => {
+  // Trigger Clock-out or Overtime Authorization Modal if > 12 hours
+  const initiateClockOut = () => {
     if (!completedTasksCount || !clockOutNote.trim()) {
       setError('You must fill out the tasks output and explanation before clocking out.');
       return;
     }
     setError('');
+
+    // Check if total shift time exceeds 12 hours
+    let shiftMins = 0;
+    if (activeRecord) {
+      const start = new Date(activeRecord.clockInTime).getTime();
+      const current = new Date().getTime();
+      if (!isNaN(start) && current > start) {
+        shiftMins = Math.floor((current - start) / 60000);
+      }
+    }
+
+    if (shiftMins > 12 * 60 && !authorizationName.trim()) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    executeClockOut();
+  };
+
+  const executeClockOut = async (overrideAuthName?: string) => {
+    const finalAuthName = overrideAuthName !== undefined ? overrideAuthName : authorizationName;
+    setError('');
+    setSuccessMsg('');
     setActionLoading(true);
     try {
       const num = completedTasksCount !== '' ? Number(completedTasksCount) : undefined;
       await attendanceApi.clockOut({
         completedTasksCount: !isNaN(num as number) && num !== undefined ? num : null,
         clockOutNote: clockOutNote.trim() || null,
-        authorizationName: authorizationName.trim() || undefined,
+        authorizationName: finalAuthName.trim() || undefined,
       });
       setCompletedTasksCount('');
       setClockOutNote('');
       setAuthorizationName('');
-      setNeedsAuthorization(false);
+      setIsAuthModalOpen(false);
       await fetchRecords();
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to clock out.';
       if (typeof msg === 'string' && msg.includes('NEEDS_AUTHORIZATION')) {
-        setNeedsAuthorization(true);
-        setError('You have crossed 12 hours in a single day. Who gave you authorization?');
+        setIsAuthModalOpen(true);
+        setError('You have worked over 12 hours. Please provide manager authorization to clock out.');
       } else {
         setError(msg);
       }
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleResolveException = async (id: string, status: 'ACCEPTED' | 'REJECTED') => {
+    try {
+      await attendanceApi.resolveException(id, status);
+      setSuccessMsg(`Overtime decision updated to ${status === 'ACCEPTED' ? 'Approved' : 'Rejected'} successfully.`);
+      await fetchRecords();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to resolve exception.');
     }
   };
 
@@ -123,10 +165,13 @@ export default function AttendancePage() {
     return `${hrs}h ${rem}m`;
   };
 
-  // Compute overall stats
+  // Compute overall stats (excluding unapproved overtime exceptions)
   let totalMinutesWorked = 0;
   records.forEach((r) => {
     if (r.clockOutTime && r.status === AttendanceStatus.CLOCKED_OUT) {
+      if (r.isException && r.exceptionStatus !== 'ACCEPTED') {
+        return; // Exclude unapproved overtime exception hours
+      }
       const start = new Date(r.clockInTime).getTime();
       const end = new Date(r.clockOutTime).getTime();
       if (!isNaN(start) && !isNaN(end) && end > start) {
@@ -137,12 +182,182 @@ export default function AttendancePage() {
   const totalHoursWorked = Math.floor(totalMinutesWorked / 60);
   const totalRemainingMins = totalMinutesWorked % 60;
 
+  // Filter rejected records for employee notification
+  const rejectedRecords = records.filter(r => r.isException && r.exceptionStatus === 'REJECTED');
+
+  // Filter exceptions for HR Management Card
+  const pendingCount = allExceptions.filter(e => e.exceptionStatus === 'PENDING').length;
+  const approvedCount = allExceptions.filter(e => e.exceptionStatus === 'ACCEPTED').length;
+  const rejectedCount = allExceptions.filter(e => e.exceptionStatus === 'REJECTED').length;
+
+  const filteredExceptions = allExceptions.filter(e => {
+    if (exceptionTab === 'PENDING') return e.exceptionStatus === 'PENDING';
+    if (exceptionTab === 'ACCEPTED') return e.exceptionStatus === 'ACCEPTED';
+    if (exceptionTab === 'REJECTED') return e.exceptionStatus === 'REJECTED';
+    return true;
+  });
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">My Attendance</h1>
         <p className="text-slate-400 mt-1">Track your daily attendance & work location</p>
       </div>
+
+      {/* Employee Rejection Notice Banner */}
+      {rejectedRecords.length > 0 && (
+        <div className="glass-card p-5 bg-gradient-to-r from-red-500/15 via-rose-500/10 to-transparent border border-red-500/30 rounded-2xl space-y-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 font-bold text-lg">
+              ⚠️
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Overtime Hours Not Approved</h3>
+              <p className="text-xs text-red-300">
+                You have {rejectedRecords.length} shift(s) where 12+ hour overtime was <strong>rejected by HR</strong>. These hours have been excluded from your payroll calculations. If you spoke to HR and they agreed to reverse the decision, your hours will be restored once HR approves them.
+              </p>
+            </div>
+          </div>
+          <div className="divide-y divide-red-500/20 bg-slate-950/60 rounded-xl p-3 text-xs space-y-2 border border-red-500/20">
+            {rejectedRecords.map(rec => (
+              <div key={rec.id} className="pt-2 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-300">
+                <div>
+                  <strong className="text-white">{formatDate(rec.clockInTime)}</strong> (Claimed Authorization: <span className="text-red-300 italic">{rec.authorizationName || 'Not specified'}</span>)
+                </div>
+                <span className="text-[11px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-semibold self-start sm:self-auto">
+                  Contact HR to request review
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HR / Admin Overtime Approvals & Decisions Management Panel */}
+      {isHrOrAdmin && allExceptions.length > 0 && (
+        <div className="glass-card p-6 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-indigo-400 animate-pulse" />
+              <div>
+                <h2 className="text-lg font-bold text-white">Overtime Exceptions & HR Decisions ({allExceptions.length})</h2>
+                <p className="text-xs text-slate-400">Review, approve, or reverse decisions on 12+ hour overtime claims</p>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="inline-flex rounded-xl bg-slate-950/80 p-1 border border-white/10 text-xs font-bold">
+              <button
+                onClick={() => setExceptionTab('PENDING')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  exceptionTab === 'PENDING'
+                    ? 'bg-amber-500 text-slate-950 font-extrabold shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pending ({pendingCount})
+              </button>
+              <button
+                onClick={() => setExceptionTab('ACCEPTED')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  exceptionTab === 'ACCEPTED'
+                    ? 'bg-emerald-600 text-white font-extrabold shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Approved ({approvedCount})
+              </button>
+              <button
+                onClick={() => setExceptionTab('REJECTED')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  exceptionTab === 'REJECTED'
+                    ? 'bg-red-600 text-white font-extrabold shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Rejected ({rejectedCount})
+              </button>
+              <button
+                onClick={() => setExceptionTab('ALL')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  exceptionTab === 'ALL'
+                    ? 'bg-indigo-600 text-white font-extrabold shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({allExceptions.length})
+              </button>
+            </div>
+          </div>
+
+          {filteredExceptions.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400 bg-slate-900/60 rounded-xl border border-white/5">
+              No overtime exception records found in the "{exceptionTab.toLowerCase()}" tab.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredExceptions.map((exp) => {
+                const isPending = !exp.exceptionStatus || exp.exceptionStatus === 'PENDING';
+                const isApproved = exp.exceptionStatus === 'ACCEPTED';
+                const isRejected = exp.exceptionStatus === 'REJECTED';
+
+                return (
+                  <div key={exp.id} className="bg-slate-900/90 border border-white/10 rounded-xl p-4 space-y-3 shadow-lg hover:border-white/20 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="text-sm font-bold text-white">{exp.employeeName || 'Employee'}</h4>
+                        <p className="text-xs text-slate-400">{exp.employeeEmail}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                        isApproved
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : isRejected
+                          ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      }`}>
+                        {isApproved && '✓ Approved'}
+                        {isRejected && '❌ Rejected'}
+                        {isPending && '⏳ Pending HR'}
+                      </span>
+                    </div>
+
+                    <div className="text-xs space-y-1 bg-white/5 p-2.5 rounded-lg border border-white/5">
+                      <p className="text-slate-300">
+                        <strong className="text-indigo-400">Shift Date:</strong> {formatDate(exp.clockInTime)}
+                      </p>
+                      <p className="text-slate-300">
+                        <strong className="text-indigo-400">Claimed Authorizer:</strong> <span className="text-white font-semibold">{exp.authorizationName || 'N/A'}</span>
+                      </p>
+                      {exp.clockOutNote && (
+                        <p className="text-slate-400 italic">"{exp.clockOutNote}"</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      {!isApproved && (
+                        <button
+                          onClick={() => handleResolveException(exp.id, 'ACCEPTED')}
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center justify-center gap-1 shadow-md"
+                        >
+                          <span>{isRejected ? '✓ Reverse & Approve Hours' : '✓ Approve Hours'}</span>
+                        </button>
+                      )}
+                      {!isRejected && (
+                        <button
+                          onClick={() => handleResolveException(exp.id, 'REJECTED')}
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors flex items-center justify-center gap-1 shadow-md"
+                        >
+                          <span>{isApproved ? '✕ Change Decision to Reject' : '✕ Reject'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Clock-in / Clock-out Card */}
       <div className="glass-card p-6 sm:p-8 space-y-6 max-w-2xl">
@@ -164,7 +379,7 @@ export default function AttendancePage() {
               {isClockedIn ? 'Currently Clocked In' : 'Not Clocked In'}
             </span>
           </div>
-          {isClockedIn && activeRecord.workLocation && (
+          {isClockedIn && activeRecord?.workLocation && (
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
               {activeRecord.workLocation === WorkLocation.OFFICE ? '🏢 Office' : '🏠 Home'}
               {activeRecord.latePenalty && (
@@ -182,7 +397,13 @@ export default function AttendancePage() {
           </div>
         )}
 
-        {isClockedIn ? (
+        {successMsg && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-sm text-emerald-400">
+            {successMsg}
+          </div>
+        )}
+
+        {isClockedIn && activeRecord ? (
           <div className="space-y-6">
             <div className="bg-white/5 rounded-xl p-4 space-y-2 border border-white/10">
               <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
@@ -190,7 +411,7 @@ export default function AttendancePage() {
               </p>
               <p className="text-white font-medium">{activeRecord.intendedTask}</p>
               <p className="text-xs text-slate-500">
-                Clocked in since {formatTime(activeRecord.clockInTime)} ({activeRecord.workLocation === WorkLocation.OFFICE ? '🏢 Office' : '🏠 Home'})
+                Clocked in since {formatTime(activeRecord.clockInTime)} ({formatDate(activeRecord.clockInTime)})
               </p>
             </div>
 
@@ -233,28 +454,12 @@ export default function AttendancePage() {
                   />
                   <span className="text-[11px] text-slate-500 mt-1 block">Explanation text next to output</span>
                 </div>
-                
-                {needsAuthorization && (
-                  <div className="sm:col-span-3 mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl animate-fadeIn">
-                    <label className="block text-xs font-bold text-red-400 mb-1.5">
-                      Authorization Required (Over 12 Hours)
-                    </label>
-                    <input
-                      type="text"
-                      value={authorizationName}
-                      onChange={(e) => setAuthorizationName(e.target.value)}
-                      placeholder="Who authorized this overtime? (e.g. John Doe)"
-                      className="input-field py-2 text-sm bg-slate-950/80 border-red-500/50 focus:border-red-400 text-white placeholder:text-slate-500 w-full"
-                    />
-                    <span className="text-[11px] text-red-400/80 mt-1 block">Please provide the name of the authorizing manager to proceed.</span>
-                  </div>
-                )}
               </div>
             </div>
 
             <button
-              onClick={handleClockOut}
-              disabled={actionLoading || !completedTasksCount || !clockOutNote.trim() || (needsAuthorization && !authorizationName.trim())}
+              onClick={initiateClockOut}
+              disabled={actionLoading || !completedTasksCount || !clockOutNote.trim()}
               className="flex items-center justify-center gap-2 w-full px-6 py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? (
@@ -357,6 +562,65 @@ export default function AttendancePage() {
         )}
       </div>
 
+      {/* Dedicated 12+ Hour Overtime Authorization Modal */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="glass-card border border-red-500/30 max-w-lg w-full p-6 space-y-6 shadow-2xl rounded-2xl bg-slate-900">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-2xl text-red-400">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Overtime Authorization Required</h3>
+                <p className="text-xs text-red-300">You have crossed 12 hours in a single shift/day.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-slate-300">
+                To clock out of a shift exceeding 12 hours, please enter the name of the manager or supervisor who authorized this overtime work.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-200 mb-1.5 uppercase tracking-wider">
+                  Authorizing Manager Name *
+                </label>
+                <input
+                  type="text"
+                  value={authorizationName}
+                  onChange={(e) => setAuthorizationName(e.target.value)}
+                  placeholder="e.g. John Doe (Department Lead)"
+                  className="input-field py-2.5 text-sm bg-slate-950 border-red-500/40 focus:border-red-400 text-white w-full"
+                  autoFocus
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Note: Overtime hours will be sent to HR for review before being added to payroll.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 bg-white/5 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executeClockOut()}
+                disabled={actionLoading || !authorizationName.trim()}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-lg shadow-red-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {actionLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Confirm Authorization & Clock Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Attendance History */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -374,9 +638,9 @@ export default function AttendancePage() {
               Compare with Tracker
             </button>
             <div className="flex items-center gap-4 text-xs bg-white/[0.03] border border-white/10 px-4 py-2 rounded-xl">
-              <span className="text-slate-400">Total Worked: <strong className="text-emerald-400 font-bold text-sm">{totalHoursWorked}h {totalRemainingMins}m</strong></span>
+              <span className="text-slate-400">Total Approved Worked: <strong className="text-emerald-400 font-bold text-sm">{totalHoursWorked}h {totalRemainingMins}m</strong></span>
               <span className="text-slate-600">|</span>
-              <span className="text-slate-400">Total Days: <strong className="text-white font-bold text-sm">{records.length}</strong></span>
+              <span className="text-slate-400">Total Shifts: <strong className="text-white font-bold text-sm">{records.length}</strong></span>
             </div>
           </div>
         </div>
@@ -457,16 +721,33 @@ export default function AttendancePage() {
                             : <span className="text-amber-400/80 italic text-xs">Ongoing</span>}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold ${
-                            isActive
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                          }`}>
-                            {isActive && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold ${
+                              isActive
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : record.isException && record.exceptionStatus !== 'ACCEPTED'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 line-through'
+                                : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                            }`}>
+                              {isActive && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+                              )}
+                              {durationStr}
+                            </span>
+                            {record.isException && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                record.exceptionStatus === 'ACCEPTED'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : record.exceptionStatus === 'REJECTED'
+                                  ? 'bg-red-500/20 text-red-400'
+                                  : 'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                {record.exceptionStatus === 'ACCEPTED' && '✓ Approved Overtime'}
+                                {record.exceptionStatus === 'REJECTED' && '❌ Overtime Rejected'}
+                                {(!record.exceptionStatus || record.exceptionStatus === 'PENDING') && '⏳ Pending HR Approval'}
+                              </span>
                             )}
-                            {durationStr}
-                          </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 max-w-sm">
                           <div className="space-y-1">
@@ -519,5 +800,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-

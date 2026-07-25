@@ -2,18 +2,22 @@ import { Injectable, BadRequestException, NotFoundException, Optional } from '@n
 import { PrismaService } from '../prisma/prisma.service';
 import { AttendanceResponseDto, AttendanceStatus, UpdateAttendanceDto, WorkLocation, ClockOutDto } from '@hrms/shared';
 import { PresenceGateway } from '../presence/presence.gateway';
+import { TrackerService } from '../tracker/tracker.service';
 
 @Injectable()
 export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly presenceGateway?: PresenceGateway,
+    @Optional() private readonly trackerService?: TrackerService,
   ) {}
 
   private mapRecord(record: any): AttendanceResponseDto {
     return {
       id: record.id,
       employeeId: record.employeeId,
+      employeeName: record.employee?.name,
+      employeeEmail: record.employee?.email,
       clockInTime: record.clockInTime.toISOString(),
       clockOutTime: record.clockOutTime ? record.clockOutTime.toISOString() : null,
       intendedTask: record.intendedTask,
@@ -83,6 +87,15 @@ export class AttendanceService {
 
     this.presenceGateway?.broadcastPresenceUpdate();
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: { tsUsername: true },
+    });
+    if (user?.tsUsername) {
+      const inOffice = workLocation === WorkLocation.OFFICE;
+      this.trackerService?.syncOfficeStatus(user.tsUsername, inOffice, now);
+    }
+
     return this.mapRecord(attendance);
   }
 
@@ -111,6 +124,27 @@ export class AttendanceService {
     }
 
     const now = new Date();
+    if (now <= openAttendance.clockInTime) {
+      throw new BadRequestException('Clock out time cannot be earlier than or equal to clock in time.');
+    }
+
+    // Split shift into daily segments if it crosses midnight boundaries
+    const segments: { start: Date; end: Date }[] = [];
+    let currentStart = new Date(openAttendance.clockInTime);
+    while (true) {
+      const nextMidnight = new Date(currentStart);
+      nextMidnight.setHours(24, 0, 0, 0);
+      if (now <= nextMidnight) {
+        segments.push({ start: currentStart, end: now });
+        break;
+      } else {
+        const endOfDay = new Date(nextMidnight.getTime() - 1);
+        segments.push({ start: currentStart, end: endOfDay });
+        currentStart = nextMidnight;
+      }
+    }
+
+    // Calculate total minutes worked in this shift + existing same-day records
     const startOfDay = new Date(openAttendance.clockInTime);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(openAttendance.clockInTime);
@@ -144,10 +178,12 @@ export class AttendanceService {
       authorizationName = dto.authorizationName.trim();
     }
 
+    // Update segment 0 (the original open attendance record)
+    const firstSegment = segments[0];
     const attendance = await this.prisma.attendance.update({
       where: { id: openAttendance.id },
       data: {
-        clockOutTime: now,
+        clockOutTime: firstSegment.end,
         status: AttendanceStatus.CLOCKED_OUT,
         completedTasksCount: dto.completedTasksCount,
         clockOutNote: dto.clockOutNote,
@@ -157,7 +193,36 @@ export class AttendanceService {
       },
     });
 
+    // Create records for any subsequent segments if shift crossed midnight
+    for (let i = 1; i < segments.length; i++) {
+      await this.prisma.attendance.create({
+        data: {
+          employeeId,
+          clockInTime: segments[i].start,
+          clockOutTime: segments[i].end,
+          intendedTask: `${openAttendance.intendedTask} (Shift continuation)`,
+          status: AttendanceStatus.CLOCKED_OUT,
+          workLocation: openAttendance.workLocation,
+          latePenalty: false,
+          penaltyMinutes: 0,
+          completedTasksCount: dto.completedTasksCount,
+          clockOutNote: dto.clockOutNote,
+          authorizationName,
+          isException,
+          exceptionStatus,
+        },
+      });
+    }
+
     this.presenceGateway?.broadcastPresenceUpdate();
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: { tsUsername: true },
+    });
+    if (user?.tsUsername) {
+      this.trackerService?.syncOfficeStatus(user.tsUsername, false, now);
+    }
 
     return this.mapRecord(attendance);
   }
@@ -229,11 +294,17 @@ export class AttendanceService {
   }
 
   async getPendingExceptions(): Promise<AttendanceResponseDto[]> {
+    return this.getAllExceptions('PENDING');
+  }
+
+  async getAllExceptions(status?: string): Promise<AttendanceResponseDto[]> {
+    const where: any = { isException: true };
+    if (status && status !== 'ALL') {
+      where.exceptionStatus = status;
+    }
     const records = await this.prisma.attendance.findMany({
-      where: {
-        isException: true,
-        exceptionStatus: 'PENDING',
-      },
+      where,
+      include: { employee: { select: { name: true, email: true } } },
       orderBy: { clockInTime: 'desc' },
     });
     return records.map((record) => this.mapRecord(record));

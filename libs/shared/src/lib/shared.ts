@@ -159,6 +159,8 @@ export interface ClockOutDto {
 export interface AttendanceResponseDto {
   id: string;
   employeeId: string;
+  employeeName?: string;
+  employeeEmail?: string;
   clockInTime: string;
   clockOutTime: string | null;
   intendedTask: string;

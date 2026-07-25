@@ -35,20 +35,21 @@ export class TrackerService {
     return { Authorization: `Bearer ${this.accessToken}` };
   }
 
-  private async request<T>(method: 'GET' | 'POST', endpoint: string, retryCount = 0): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST' | 'PATCH', endpoint: string, body?: any, retryCount = 0): Promise<T> {
     try {
       const headers = await this.getAuthHeaders();
       const response = await axios({
         method,
         url: `${this.apiUrl}${endpoint}`,
         headers,
+        data: body,
       });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 401 && retryCount === 0) {
         // Token might be expired, re-authenticate and retry
         this.accessToken = null;
-        return this.request<T>(method, endpoint, 1);
+        return this.request<T>(method, endpoint, body, 1);
       }
       console.error(`Tracker API request failed (${endpoint}):`, error.response?.data || error.message);
       
@@ -62,6 +63,22 @@ export class TrackerService {
         error.response?.data?.message || 'Tracker API request failed',
         status,
       );
+    }
+  }
+
+  async syncOfficeStatus(tsUsername: string, inOffice: boolean, timestamp: Date): Promise<void> {
+    if (!tsUsername || !tsUsername.trim()) {
+      return;
+    }
+    try {
+      const payload = inOffice
+        ? { inOfficeToday: true, officeCheckInTime: timestamp.toISOString() }
+        : { inOfficeToday: false, officeCheckOutTime: timestamp.toISOString() };
+
+      await this.request('PATCH', `/employees/${encodeURIComponent(tsUsername.trim())}`, payload);
+      console.log(`📡 [TRACKER SYNC] Successfully synced office status for ${tsUsername}: inOffice=${inOffice}`);
+    } catch (error: any) {
+      console.warn(`⚠️ [TRACKER SYNC WARNING] Failed to sync office status for ${tsUsername}:`, error?.message || error);
     }
   }
 

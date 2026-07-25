@@ -46,6 +46,10 @@ export class PayrollService {
 
       for (const att of user.attendances) {
         if (att.clockOutTime) {
+          // Exclude unapproved overtime exception hours from payroll calculation
+          if (att.isException && att.exceptionStatus !== 'ACCEPTED') {
+            continue;
+          }
           totalMins += (att.clockOutTime.getTime() - att.clockInTime.getTime()) / 60000;
         }
 

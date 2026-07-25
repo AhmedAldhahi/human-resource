@@ -137,6 +137,9 @@ export default function EmployeeHoursModal({
       }
     } else if (r.clockOutTime) {
       completedCount++;
+      if (r.isException && r.exceptionStatus !== 'ACCEPTED') {
+        return; // Exclude unapproved overtime exception hours
+      }
       const start = new Date(r.clockInTime).getTime();
       const end = new Date(r.clockOutTime).getTime();
       if (!isNaN(start) && !isNaN(end) && end > start) {

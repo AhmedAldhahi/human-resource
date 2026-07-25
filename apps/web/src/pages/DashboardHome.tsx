@@ -21,10 +21,8 @@ export default function DashboardHome() {
           presenceApi.getLive(),
           presenceApi.getStats(),
         ]);
-        const today = new Date().toDateString();
-        const todayRec = records.find(
-          (r) => new Date(r.clockInTime).toDateString() === today
-        );
+        const activeRec = records.find((r) => r.status === AttendanceStatus.CLOCKED_IN || !r.clockOutTime);
+        const todayRec = activeRec || records.find((r) => new Date(r.clockInTime).toDateString() === new Date().toDateString());
         setTodayRecord(todayRec || null);
         setOnlineTeammates(liveList.filter((r) => r.isOnline).slice(0, 7));
         setPresenceStats(stats);
@@ -40,7 +38,7 @@ export default function DashboardHome() {
   if (!user) return null;
 
   const isHrOrAdmin = user.role === Role.HR || user.role === Role.ADMIN;
-  const isClockedIn = todayRecord?.status === AttendanceStatus.CLOCKED_IN;
+  const isClockedIn = todayRecord?.status === AttendanceStatus.CLOCKED_IN || (!!todayRecord && !todayRecord.clockOutTime);
 
   const greeting = () => {
     const hour = new Date().getHours();
