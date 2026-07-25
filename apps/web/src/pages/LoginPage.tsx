@@ -1,15 +1,32 @@
-import React, { useState, type FormEvent } from 'react';
+import React, { useState, useEffect, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 import ThemeSwitcher from '../components/ThemeSwitcher';
 
+const REMEMBER_ME_KEY = 'hrms_remember_me';
+const REMEMBER_EMAIL_KEY = 'hrms_remember_email';
+const REMEMBER_PASSWORD_KEY = 'hrms_remember_password';
+
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const isRemembered = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+    if (isRemembered) {
+      const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY) || '';
+      const savedPassword = localStorage.getItem(REMEMBER_PASSWORD_KEY) || '';
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -29,6 +46,16 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
+
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_ME_KEY, 'true');
+        localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+        localStorage.setItem(REMEMBER_PASSWORD_KEY, password);
+      } else {
+        localStorage.setItem(REMEMBER_ME_KEY, 'false');
+        localStorage.removeItem(REMEMBER_EMAIL_KEY);
+        localStorage.removeItem(REMEMBER_PASSWORD_KEY);
+      }
     } catch (err: any) {
       if (err?.response?.data?.message) {
         setError(err.response.data.message);
@@ -43,15 +70,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden transition-colors duration-300">
       {/* Top right Theme Switcher */}
       <div className="absolute top-6 right-6 z-20">
         <ThemeSwitcher compact />
       </div>
-      {/* Background effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+      {/* Dynamic Background theme glow effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div 
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl opacity-20 transition-all duration-500"
+          style={{ background: 'var(--accent-color)' }}
+        />
+        <div 
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl opacity-20 transition-all duration-500"
+          style={{ background: 'var(--accent-secondary)' }}
+        />
       </div>
 
       {/* Login Card */}
@@ -62,7 +95,7 @@ export default function LoginPage() {
             <h1 className="text-4xl font-extrabold tracking-tight gradient-text">
               HRMS
             </h1>
-            <p className="text-slate-400 text-sm">
+            <p className="text-theme-secondary text-sm">
               Sign in to your account to continue
             </p>
           </div>
@@ -82,7 +115,7 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
-                className="block text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                className="block text-xs font-semibold text-theme-secondary uppercase tracking-wider"
               >
                 Email Address
               </label>
@@ -101,20 +134,55 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="password"
-                className="block text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                className="block text-xs font-semibold text-theme-secondary uppercase tracking-wider"
               >
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-primary transition-colors"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.044 10.044 0 013.682-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.092-4.092a3 3 0 11-4.243-4.243m4.243 4.243L3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me Checkbox (Theme-Aware) */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: 'var(--accent-color)' }}
+                  className="w-4 h-4 rounded cursor-pointer transition-all"
+                />
+                <span className="text-xs text-theme-secondary group-hover:text-theme-primary transition-colors font-medium">
+                  Remember password
+                </span>
+              </label>
             </div>
 
             <button
@@ -135,7 +203,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-slate-600 text-xs mt-6">
+        <p className="text-center text-theme-muted text-xs mt-6">
           &copy; {new Date().getFullYear()} Ahmed Aldhahi — Human Resource Management System
         </p>
       </div>
