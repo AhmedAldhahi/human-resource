@@ -169,7 +169,6 @@ export default function SchedulePage() {
 
   // Open Assign Modal for a specific Day
   const openAssignModalForDay = (dateStr: string, dayLabel: string) => {
-    // Collect users currently marked as OFFICE for this day
     const currentlyInOffice = employees
       .filter((emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE')
       .map((emp) => emp.id);
@@ -247,7 +246,6 @@ export default function SchedulePage() {
       const startX = 40;
       canvas.width = startX * 2 + colWidth * 7;
 
-      // Gather daily data for rendering
       const dailyData = currentWeekDates.map((d, idx) => {
         const dateStr = formatYmd(d);
         const officeEmps = employees.filter((emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE');
@@ -495,7 +493,7 @@ export default function SchedulePage() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setMeetingDate(formatYmd(tomorrow));
-    setSelectedAttendeeIds(employees.map((e) => e.id)); // Default select all
+    setSelectedAttendeeIds(employees.map((e) => e.id));
     setIsMeetingModalOpen(true);
   };
 
@@ -629,10 +627,10 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* FIX ROUTE HERE: /dashboard/attendance */}
+              {/* ROUTE FIX: /dashboard/attendance */}
               <Link
                 to="/dashboard/attendance"
-                className="gradient-btn px-6 py-3.5 text-sm flex items-center justify-center gap-2 shadow-xl whitespace-nowrap self-start md:self-auto hover:scale-105 transition-transform"
+                className="gradient-btn px-6 py-3.5 text-sm font-extrabold text-white flex items-center justify-center gap-2 shadow-xl whitespace-nowrap self-start md:self-auto hover:scale-105 transition-transform"
               >
                 <span>⏱️ Open Attendance & Clock In</span>
               </Link>
@@ -779,7 +777,7 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* TAB 2: HR OFFICE ROSTER MANAGER (NEW DAY CARDS & ASSIGN MODAL) */}
+      {/* TAB 2: HR OFFICE ROSTER MANAGER (HIGH CONTRAST THEME STYLING) */}
       {activeTab === 'roster' && isHrOrAdmin && (
         <div className="space-y-6">
           {/* Controls Bar */}
@@ -827,7 +825,7 @@ export default function SchedulePage() {
               <button
                 onClick={handleSaveRoster}
                 disabled={savingRoster}
-                className="gradient-btn px-5 py-2.5 text-xs flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
+                className="gradient-btn px-5 py-2.5 text-xs font-extrabold flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
               >
                 {savingRoster ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -838,7 +836,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          {/* 7 DAY CARDS GRID (CLEAN & SIMPLE) */}
+          {/* 7 DAY CARDS GRID (HIGH CONTRAST & READABLE EVERYWHERE) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4" ref={exportTableRef}>
             {currentWeekDates.map((d, idx) => {
               const dateStr = formatYmd(d);
@@ -855,8 +853,8 @@ export default function SchedulePage() {
                   key={dateStr}
                   className={`glass-card p-5 rounded-2xl flex flex-col justify-between space-y-4 border transition-all ${
                     isToday
-                      ? 'border-2 border-cyan-400 bg-cyan-950/20 shadow-lg ring-1 ring-cyan-500/30'
-                      : 'bg-slate-900/80 border-white/10'
+                      ? 'border-2 border-cyan-400 bg-cyan-950/40 shadow-lg ring-1 ring-cyan-500/40'
+                      : 'bg-slate-900/90 border-white/15'
                   }`}
                 >
                   <div className="space-y-2">
@@ -878,9 +876,9 @@ export default function SchedulePage() {
                     </div>
 
                     {/* Attendance Count */}
-                    <div className="text-[11px] font-bold text-slate-400 flex items-center justify-between">
+                    <div className="text-[11px] font-extrabold text-slate-300 flex items-center justify-between">
                       <span>Office Attendees:</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black">
                         {officeEmployees.length}
                       </span>
                     </div>
@@ -888,19 +886,19 @@ export default function SchedulePage() {
                     {/* List of Office Employees */}
                     <div className="space-y-1.5 pt-2 min-h-[140px] max-h-[220px] overflow-y-auto">
                       {officeEmployees.length === 0 ? (
-                        <div className="text-center py-6 text-[11px] text-slate-500 italic">
+                        <div className="text-center py-6 text-[11px] text-slate-400 italic">
                           No employees assigned to office
                         </div>
                       ) : (
                         officeEmployees.map((emp) => (
                           <div
                             key={emp.id}
-                            className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-xs font-semibold group hover:bg-emerald-500/20 transition-colors"
+                            className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-xs font-extrabold group hover:bg-emerald-500/30 transition-colors shadow-sm"
                           >
                             <span className="truncate pr-1">• {emp.name}</span>
                             <button
                               onClick={() => removeUserFromDayOffice(emp.id, dateStr)}
-                              className="text-slate-400 hover:text-red-400 font-bold px-1 transition-colors"
+                              className="text-emerald-300 hover:text-red-400 font-black px-1 transition-colors"
                               title="Remove from Office list"
                             >
                               ✕
@@ -911,10 +909,10 @@ export default function SchedulePage() {
                     </div>
                   </div>
 
-                  {/* Assign Button */}
+                  {/* Assign Button (SOLID INDIGO + BRIGHT WHITE TEXT) */}
                   <button
                     onClick={() => openAssignModalForDay(dateStr, dayLabel)}
-                    className="w-full py-2 px-3 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-bold flex items-center justify-center gap-1.5 shadow transition-all hover:scale-105"
+                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md transition-all hover:scale-105"
                   >
                     <span>➕ Choose Office Employees</span>
                   </button>
@@ -954,14 +952,14 @@ export default function SchedulePage() {
                 value={modalSearch}
                 onChange={(e) => setModalSearch(e.target.value)}
                 placeholder="Search employee by name or email..."
-                className="input-field text-xs pl-9 py-2.5"
+                className="input-field text-xs pl-9 py-2.5 text-white"
               />
             </div>
 
             {/* Quick Actions */}
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-semibold">
-                Selected: <strong className="text-emerald-400">{modalSelectedUserIds.length}</strong> employees
+              <span className="text-slate-300 font-semibold">
+                Selected: <strong className="text-emerald-400 font-black">{modalSelectedUserIds.length}</strong> employees
               </span>
               <div className="space-x-3">
                 <button
@@ -1002,7 +1000,7 @@ export default function SchedulePage() {
                       key={emp.id}
                       className={`flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer border transition-colors ${
                         isChecked
-                          ? 'bg-emerald-500/20 border-emerald-500/40 text-white font-bold'
+                          ? 'bg-emerald-500/20 border-emerald-500/40 text-white font-extrabold'
                           : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
                       }`}
                     >
@@ -1022,7 +1020,9 @@ export default function SchedulePage() {
                         <span>{emp.name}</span>
                       </div>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        isFixed ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800 text-slate-400'
+                        isFixed
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       }`}>
                         {isFixed ? 'Fixed Income' : 'Per Hour'}
                       </span>

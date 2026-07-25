@@ -298,8 +298,8 @@ export default function EmployeesPage() {
                       <div className="flex flex-col gap-1 items-start">
                         <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold ${
                           emp.employeeType === EmployeeType.FIXED
-                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                            : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-sm'
+                            ? 'bg-indigo-500/20 text-indigo-900 dark:text-indigo-300 border border-indigo-500/40 shadow-sm'
+                            : 'bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/40 shadow-sm'
                         }`}>
                           {emp.employeeType === EmployeeType.FIXED ? '👔 Fixed Income' : '⏱️ Per-Hour'}
                         </span>
