@@ -251,7 +251,7 @@ export class ScheduleService {
     const todaySchedule = await this.prisma.officeSchedule.findUnique({
       where: { userId_date: { userId, date: todayStr } },
     });
-    const todayScheduledLocation = (todaySchedule?.workLocation as WorkLocation) || WorkLocation.OFFICE;
+    const todayScheduledLocation = (todaySchedule?.workLocation as WorkLocation) || WorkLocation.HOME;
 
     // Get current week start (Sunday) and end (Saturday)
     const todayDate = new Date();

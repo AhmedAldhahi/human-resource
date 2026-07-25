@@ -32,6 +32,10 @@ export default function SchedulePage() {
 
   // HR Office Roster State
   const [employees, setEmployees] = useState<UserResponseDto[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showOnlyOfficeFilter, setShowOnlyOfficeFilter] = useState(false);
+  const [selectedUserIdsForFilter, setSelectedUserIdsForFilter] = useState<string[]>([]);
+
   const [rosterWeekStart, setRosterWeekStart] = useState<Date>(() => {
     const d = new Date();
     const day = d.getDay(); // 0 = Sunday
@@ -106,13 +110,13 @@ export default function SchedulePage() {
       const activeUsers = usersData.filter((u) => u.isActive);
       setEmployees(activeUsers);
 
-      // Build initial matrix from database, defaulting to OFFICE
+      // Default all matrix cells to 'HOME' (since most people work from home)
       const matrix: Record<string, Record<string, 'OFFICE' | 'HOME'>> = {};
       activeUsers.forEach((emp) => {
         matrix[emp.id] = {};
         currentWeekDates.forEach((d) => {
           const dateKey = formatYmd(d);
-          matrix[emp.id][dateKey] = 'OFFICE';
+          matrix[emp.id][dateKey] = 'HOME'; // DEFAULT TO HOME
         });
       });
 
@@ -157,10 +161,32 @@ export default function SchedulePage() {
     loadAllData();
   }, [user, rosterWeekStart]);
 
+  // Filtered Employees List for HR Grid
+  const filteredEmployees = employees.filter((emp) => {
+    const matchesSearch =
+      !employeeSearch.trim() ||
+      emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+      emp.email.toLowerCase().includes(employeeSearch.toLowerCase());
+
+    const isExplicitlySelected =
+      selectedUserIdsForFilter.length === 0 || selectedUserIdsForFilter.includes(emp.id);
+
+    if (showOnlyOfficeFilter) {
+      // Check if employee is coming to office on ANY day of current week
+      const isComingToOfficeAnyDay = currentWeekDates.some((d) => {
+        const dateStr = formatYmd(d);
+        return rosterMatrix[emp.id]?.[dateStr] === 'OFFICE';
+      });
+      return matchesSearch && isExplicitlySelected && isComingToOfficeAnyDay;
+    }
+
+    return matchesSearch && isExplicitlySelected;
+  });
+
   // Toggle user's work location for a specific day in Roster Matrix
   const toggleLocationCell = (userId: string, dateStr: string) => {
     setRosterMatrix((prev) => {
-      const current = prev[userId]?.[dateStr] || 'OFFICE';
+      const current = prev[userId]?.[dateStr] || 'HOME';
       const next = current === 'OFFICE' ? 'HOME' : 'OFFICE';
       return {
         ...prev,
@@ -172,11 +198,11 @@ export default function SchedulePage() {
     });
   };
 
-  // Bulk set all employees for a specific date
+  // Bulk set all visible employees for a specific date
   const setBulkDay = (dateStr: string, location: 'OFFICE' | 'HOME') => {
     setRosterMatrix((prev) => {
       const updated = { ...prev };
-      employees.forEach((emp) => {
+      filteredEmployees.forEach((emp) => {
         if (!updated[emp.id]) updated[emp.id] = {};
         updated[emp.id][dateStr] = location;
       });
@@ -211,121 +237,197 @@ export default function SchedulePage() {
     }
   };
 
-  // 📸 1-Click PNG Image Exporter for Slack / WhatsApp / Teams
+  // 📸 1-Click High-Res Schedule PNG Image Exporter tailored for Slack
+  // Highlights ONLY people coming to office + daily meeting times
   const handleExportImage = async () => {
     setExportingImage(true);
     try {
-      const container = exportTableRef.current;
-      if (!container) return;
-
-      // Dynamically import html2canvas or use HTML5 Canvas fallback
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set Canvas dimensions for a high-res image card (1200x750)
-      canvas.width = 1200;
-      canvas.height = 180 + employees.length * 48 + 80;
+      // 1. Calculate Canvas Height dynamically based on office attendees & meetings per day
+      const colWidth = 180;
+      const startX = 40;
+      canvas.width = startX * 2 + colWidth * 7;
 
-      // 1. Draw Background (Royal Navy Glass Canvas)
+      // Gather daily data for rendering
+      const dailyData = currentWeekDates.map((d, idx) => {
+        const dateStr = formatYmd(d);
+        // Find employees who are coming to office on this day (and match user selection)
+        const officeEmps = filteredEmployees.filter((emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE');
+
+        // Find meetings on this day
+        const dayMeetings = meetings.filter((m) => {
+          const mDateStr = formatYmd(new Date(m.startTime));
+          return mDateStr === dateStr;
+        });
+
+        return {
+          dayLabel: DAYS_OF_WEEK[idx].short,
+          dateDisplay: `${d.getDate()}/${d.getMonth() + 1}`,
+          officeEmps,
+          dayMeetings,
+        };
+      });
+
+      // Calculate max rows needed across days to set canvas height
+      const maxOfficeCount = Math.max(...dailyData.map((d) => d.officeEmps.length), 1);
+      const maxMeetingsCount = Math.max(...dailyData.map((d) => d.dayMeetings.length), 1);
+
+      const headerHeight = 130;
+      const dayHeaderHeight = 50;
+      const officeSectionHeight = 40 + maxOfficeCount * 28 + 15;
+      const meetingSectionHeight = 40 + maxMeetingsCount * 45 + 20;
+      const footerHeight = 60;
+
+      canvas.height = headerHeight + dayHeaderHeight + officeSectionHeight + meetingSectionHeight + footerHeight;
+
+      // 2. Draw Deep Royal Navy Background Gradient
       const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       grad.addColorStop(0, '#0a192f');
       grad.addColorStop(1, '#020c1b');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 2. Draw Header Card
+      // 3. Draw Header Banner
       ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.fillRect(40, 30, canvas.width - 80, 90);
-      ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+      ctx.fillRect(startX, 25, canvas.width - startX * 2, 85);
+      ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(40, 30, canvas.width - 80, 90);
+      ctx.strokeRect(startX, 25, canvas.width - startX * 2, 85);
 
       ctx.fillStyle = '#00f2fe';
-      ctx.font = 'bold 28px Inter, sans-serif';
-      ctx.fillText('🏢 VOADERA — WEEKLY OFFICE ROSTER', 65, 72);
+      ctx.font = 'bold 26px Inter, sans-serif';
+      ctx.fillText('🏢 VOADERA — WEEKLY OFFICE ROSTER & MEETINGS', startX + 25, 62);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '14px Inter, sans-serif';
-      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Generated by HRMS`, 65, 98);
+      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Office Attendance & Scheduled Meetings`, startX + 25, 88);
 
-      // 3. Draw Table Headers
-      const startX = 50;
-      let startY = 150;
-      const colWidths = [260, 120, 120, 120, 120, 120, 120, 120];
+      // 4. Draw Day Column Headers
+      let currentY = headerHeight;
+      dailyData.forEach((d, i) => {
+        const colX = startX + i * colWidth;
 
-      // Table Header Row BG
-      ctx.fillStyle = 'rgba(0, 242, 254, 0.15)';
-      ctx.fillRect(startX, startY, canvas.width - 100, 42);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillText('EMPLOYEE', startX + 15, startY + 26);
-
-      currentWeekDates.forEach((d, idx) => {
-        const dayLabel = `${DAYS_OF_WEEK[idx].short} ${d.getDate()}/${d.getMonth() + 1}`;
-        ctx.fillText(dayLabel, startX + colWidths[0] + idx * colWidths[1] + 15, startY + 26);
-      });
-
-      // 4. Draw Rows
-      startY += 42;
-      employees.forEach((emp, rowIdx) => {
-        // Row background striping
-        ctx.fillStyle = rowIdx % 2 === 0 ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)';
-        ctx.fillRect(startX, startY, canvas.width - 100, 44);
+        // Day Header Box
+        ctx.fillStyle = 'rgba(0, 242, 254, 0.15)';
+        ctx.fillRect(colX + 2, currentY, colWidth - 4, 42);
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(colX + 2, currentY, colWidth - 4, 42);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 13px Inter, sans-serif';
-        const truncatedName = emp.name.length > 24 ? emp.name.substring(0, 22) + '…' : emp.name;
-        ctx.fillText(truncatedName, startX + 15, startY + 26);
-
-        currentWeekDates.forEach((d, colIdx) => {
-          const dateStr = formatYmd(d);
-          const loc = rosterMatrix[emp.id]?.[dateStr] || 'OFFICE';
-
-          const cellX = startX + colWidths[0] + colIdx * colWidths[1] + 10;
-          const cellY = startY + 8;
-
-          // Draw Badge
-          if (loc === 'OFFICE') {
-            ctx.fillStyle = 'rgba(0, 255, 157, 0.2)';
-            ctx.fillRect(cellX, cellY, 100, 28);
-            ctx.strokeStyle = 'rgba(0, 255, 157, 0.6)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(cellX, cellY, 100, 28);
-            ctx.fillStyle = '#00ff9d';
-            ctx.font = 'bold 11px Inter, sans-serif';
-            ctx.fillText('🏢 OFFICE', cellX + 18, cellY + 18);
-          } else {
-            ctx.fillStyle = 'rgba(167, 139, 250, 0.2)';
-            ctx.fillRect(cellX, cellY, 100, 28);
-            ctx.strokeStyle = 'rgba(167, 139, 250, 0.6)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(cellX, cellY, 100, 28);
-            ctx.fillStyle = '#a78bfa';
-            ctx.font = 'bold 11px Inter, sans-serif';
-            ctx.fillText('🏠 HOME', cellX + 22, cellY + 18);
-          }
-        });
-
-        startY += 44;
+        ctx.font = 'bold 15px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${d.dayLabel} (${d.dateDisplay})`, colX + colWidth / 2, currentY + 26);
       });
 
-      // 5. Draw Footer Legend
-      startY += 15;
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '12px Inter, sans-serif';
-      ctx.fillText('Legend: 🏢 Office = On-site Workspace | 🏠 Home = Remote Workday', startX + 15, startY + 20);
+      // 5. Draw Section 1: Office Attendees List (Per Day)
+      currentY += dayHeaderHeight;
 
-      // Convert canvas to Blob download link
+      // Section Header Title across columns
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#00ff9d';
+      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.fillText('🏢 OFFICE ATTENDEES (ON-SITE)', startX + 5, currentY + 18);
+
+      currentY += 28;
+
+      dailyData.forEach((d, i) => {
+        const colX = startX + i * colWidth;
+        let empY = currentY;
+
+        if (d.officeEmps.length === 0) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = 'italic 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('No office attendance', colX + colWidth / 2, empY + 18);
+        } else {
+          d.officeEmps.forEach((emp) => {
+            // Employee Badge Box
+            ctx.fillStyle = 'rgba(0, 255, 157, 0.15)';
+            ctx.fillRect(colX + 6, empY, colWidth - 12, 24);
+            ctx.strokeStyle = 'rgba(0, 255, 157, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(colX + 6, empY, colWidth - 12, 24);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const shortName = emp.name.length > 18 ? emp.name.substring(0, 16) + '…' : emp.name;
+            ctx.fillText(`• ${shortName}`, colX + colWidth / 2, empY + 16);
+
+            empY += 28;
+          });
+        }
+      });
+
+      // 6. Draw Section 2: Meetings & Times List (Per Day)
+      currentY += maxOfficeCount * 28 + 25;
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#c084fc';
+      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.fillText('📹 SCHEDULED MEETINGS & TIMES', startX + 5, currentY + 18);
+
+      currentY += 28;
+
+      dailyData.forEach((d, i) => {
+        const colX = startX + i * colWidth;
+        let mY = currentY;
+
+        if (d.dayMeetings.length === 0) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = 'italic 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('No meetings', colX + colWidth / 2, mY + 18);
+        } else {
+          d.dayMeetings.forEach((m) => {
+            const startObj = new Date(m.startTime);
+            const endObj = new Date(m.endTime);
+            const timeStr = `${startObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+            // Meeting Box
+            ctx.fillStyle = 'rgba(192, 132, 252, 0.15)';
+            ctx.fillRect(colX + 6, mY, colWidth - 12, 40);
+            ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(colX + 6, mY, colWidth - 12, 40);
+
+            // Time Header
+            ctx.fillStyle = '#e9d5ff';
+            ctx.font = 'bold 10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(timeStr, colX + colWidth / 2, mY + 14);
+
+            // Title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            const shortTitle = m.title.length > 18 ? m.title.substring(0, 16) + '…' : m.title;
+            ctx.fillText(shortTitle, colX + colWidth / 2, mY + 30);
+
+            mY += 45;
+          });
+        }
+      });
+
+      // 7. Footer Watermark
+      currentY += maxMeetingsCount * 45 + 30;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px Inter, sans-serif';
+      ctx.fillText('Voadera HRMS Schedule Exporter | Share with team on Slack / Teams', startX + 10, currentY);
+
+      // Convert Canvas to Blob Download
       canvas.toBlob((blob) => {
         if (!blob) return;
         const link = document.createElement('a');
-        link.download = `Voadera_Weekly_Office_Roster_${weekStartStr}.png`;
+        link.download = `Voadera_Office_Schedule_&_Meetings_${weekStartStr}.png`;
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-        setSuccessMsg('📸 Schedule image generated and downloaded! Ready to paste into Slack/Teams.');
+        setSuccessMsg('📸 High-res schedule image generated and downloaded! Ready to paste into Slack/Teams.');
       });
     } catch (err) {
       console.error('Export image error:', err);
@@ -438,7 +540,7 @@ export default function SchedulePage() {
     );
   }
 
-  const todayLocation = mySchedule?.todayScheduledLocation || 'OFFICE';
+  const todayLocation = mySchedule?.todayScheduledLocation || 'HOME';
   const isTodayOffice = todayLocation === 'OFFICE';
 
   return (
@@ -538,7 +640,7 @@ export default function SchedulePage() {
                   <p className="text-slate-300 text-xs mt-1">
                     {isTodayOffice
                       ? 'Please make sure to clock in at the Office workspace today.'
-                      : 'You are approved to work remotely from home today.'}
+                      : 'You are working remotely from home today (Default).' }
                   </p>
                 </div>
               </div>
@@ -563,7 +665,7 @@ export default function SchedulePage() {
                 const dateStr = formatYmd(d);
                 const isToday = dateStr === formatYmd(new Date());
                 const sched = mySchedule?.weeklyRoster.find((r) => r.date === dateStr);
-                const loc = sched?.workLocation || 'OFFICE';
+                const loc = sched?.workLocation || 'HOME'; // DEFAULT TO HOME
                 const isOffice = loc === 'OFFICE';
 
                 return (
@@ -695,59 +797,94 @@ export default function SchedulePage() {
       {/* TAB 2: HR OFFICE ROSTER MANAGER */}
       {activeTab === 'roster' && isHrOrAdmin && (
         <div className="space-y-6">
-          {/* Controls Bar */}
-          <div className="glass-card p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  const d = new Date(rosterWeekStart);
-                  d.setDate(d.getDate() - 7);
-                  setRosterWeekStart(d);
-                }}
-                className="btn-secondary px-3 py-2 text-xs"
-              >
-                ← Previous Week
-              </button>
-              <div className="text-sm font-bold text-white bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                Week of {weekStartStr} to {weekEndStr}
+          {/* Controls Bar & Filters */}
+          <div className="glass-card p-5 rounded-2xl space-y-4 border border-white/10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const d = new Date(rosterWeekStart);
+                    d.setDate(d.getDate() - 7);
+                    setRosterWeekStart(d);
+                  }}
+                  className="btn-secondary px-3 py-2 text-xs"
+                >
+                  ← Previous Week
+                </button>
+                <div className="text-sm font-bold text-white bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                  Week of {weekStartStr} to {weekEndStr}
+                </div>
+                <button
+                  onClick={() => {
+                    const d = new Date(rosterWeekStart);
+                    d.setDate(d.getDate() + 7);
+                    setRosterWeekStart(d);
+                  }}
+                  className="btn-secondary px-3 py-2 text-xs"
+                >
+                  Next Week →
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  const d = new Date(rosterWeekStart);
-                  d.setDate(d.getDate() + 7);
-                  setRosterWeekStart(d);
-                }}
-                className="btn-secondary px-3 py-2 text-xs"
-              >
-                Next Week →
-              </button>
+
+              <div className="flex items-center gap-3">
+                {/* 📸 1-Click PNG Image Exporter tailored for Slack */}
+                <button
+                  onClick={handleExportImage}
+                  disabled={exportingImage}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all flex items-center gap-2 shadow-lg"
+                >
+                  {exportingImage ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>📸 Export Slack Schedule Image (PNG)</span>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleSaveRoster}
+                  disabled={savingRoster}
+                  className="gradient-btn px-5 py-2.5 text-xs flex items-center gap-2 shadow-xl"
+                >
+                  {savingRoster ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>💾 Publish & Save Roster</span>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* 📸 1-Click PNG Image Exporter */}
-              <button
-                onClick={handleExportImage}
-                disabled={exportingImage}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all flex items-center gap-2 shadow-lg"
-              >
-                {exportingImage ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <span>📸 Export Schedule Image (PNG for Slack)</span>
-                )}
-              </button>
+            {/* Employee Search & Filter Controls */}
+            <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                {/* Search Bar */}
+                <div className="relative flex-1 max-w-xs">
+                  <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+                  <input
+                    type="text"
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    placeholder="Search employee name or email..."
+                    className="input-field text-xs pl-8 py-2"
+                  />
+                </div>
 
-              <button
-                onClick={handleSaveRoster}
-                disabled={savingRoster}
-                className="gradient-btn px-5 py-2.5 text-xs flex items-center gap-2 shadow-xl"
-              >
-                {savingRoster ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <span>💾 Publish & Save Roster</span>
-                )}
-              </button>
+                {/* Filter toggle: Show only Office employees */}
+                <button
+                  onClick={() => setShowOnlyOfficeFilter(!showOnlyOfficeFilter)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 ${
+                    showOnlyOfficeFilter
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 ring-2 ring-emerald-500/20'
+                      : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <span>🏢 Filter: Coming to Office Only</span>
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Showing <strong className="text-white">{filteredEmployees.length}</strong> of {employees.length} employees
+              </div>
             </div>
           </div>
 
@@ -769,14 +906,14 @@ export default function SchedulePage() {
                             <button
                               onClick={() => setBulkDay(dateStr, 'OFFICE')}
                               className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/40 rounded font-bold"
-                              title="Set all to Office for this day"
+                              title="Mark visible to Office for this day"
                             >
                               +Off
                             </button>
                             <button
                               onClick={() => setBulkDay(dateStr, 'HOME')}
                               className="text-[9px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 rounded font-bold"
-                              title="Set all to Home for this day"
+                              title="Mark visible to Home for this day"
                             >
                               +Hm
                             </button>
@@ -787,43 +924,51 @@ export default function SchedulePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {employees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-white">
-                            {emp.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-white">{emp.name}</div>
-                            <div className="text-[11px] text-slate-400">{emp.email}</div>
-                          </div>
-                        </div>
+                  {filteredEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                        No employees match the current search or filter.
                       </td>
-
-                      {currentWeekDates.map((d) => {
-                        const dateStr = formatYmd(d);
-                        const loc = rosterMatrix[emp.id]?.[dateStr] || 'OFFICE';
-                        const isOffice = loc === 'OFFICE';
-
-                        return (
-                          <td key={dateStr} className="px-3 py-3 text-center align-middle">
-                            <button
-                              type="button"
-                              onClick={() => toggleLocationCell(emp.id, dateStr)}
-                              className={`w-full py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 shadow-sm hover:scale-105 ${
-                                isOffice
-                                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
-                                  : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
-                              }`}
-                            >
-                              <span>{isOffice ? '🏢 Office' : '🏠 Home'}</span>
-                            </button>
-                          </td>
-                        );
-                      })}
                     </tr>
-                  ))}
+                  ) : (
+                    filteredEmployees.map((emp) => (
+                      <tr key={emp.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-white">
+                              {emp.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold text-white">{emp.name}</div>
+                              <div className="text-[11px] text-slate-400">{emp.email}</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {currentWeekDates.map((d) => {
+                          const dateStr = formatYmd(d);
+                          const loc = rosterMatrix[emp.id]?.[dateStr] || 'HOME'; // DEFAULT TO HOME
+                          const isOffice = loc === 'OFFICE';
+
+                          return (
+                            <td key={dateStr} className="px-3 py-3 text-center align-middle">
+                              <button
+                                type="button"
+                                onClick={() => toggleLocationCell(emp.id, dateStr)}
+                                className={`w-full py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 shadow-sm hover:scale-105 ${
+                                  isOffice
+                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                                    : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/30'
+                                }`}
+                              >
+                                <span>{isOffice ? '🏢 Office' : '🏠 Home'}</span>
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
