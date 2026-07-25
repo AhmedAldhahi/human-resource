@@ -21,11 +21,7 @@ const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagemen
 const AuditLogPage = React.lazy(() => import('../pages/AuditLogPage'));
 const SchedulePage = React.lazy(() => import('../pages/SchedulePage'));
 
-const PageLoader = () => (
-  <div className="flex h-screen items-center justify-center bg-slate-950">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-  </div>
-);
+import { PageSkeleton } from '../components/SkeletonLoader';
 import { Role } from '@hrms/shared';
 import { ChatProvider } from '../context/ChatContext';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -36,7 +32,7 @@ export function App() {
       <BrowserRouter>
         <AuthProvider>
           <ChatProvider>
-            <React.Suspense fallback={<PageLoader />}>
+            <React.Suspense fallback={<PageSkeleton />}>
             <Routes>
           {/* Public */}
           <Route path="/" element={<LoginPage />} />

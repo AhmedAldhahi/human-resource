@@ -113,6 +113,10 @@ model Attendance {
   exceptionStatus     String? // e.g. PENDING, ACCEPTED, REJECTED
 
   employee            User             @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, clockInTime])
+  @@index([clockInTime])
+  @@index([status])
 }
 
 model PerformanceCard {
@@ -125,6 +129,9 @@ model PerformanceCard {
 
   employee   User     @relation("ReceivedCards", fields: [employeeId], references: [id])
   issuer     User     @relation("IssuedCards", fields: [issuerId], references: [id])
+
+  @@index([employeeId, issuedAt])
+  @@index([issuerId])
 }
 
 model AbsenceRecord {
@@ -141,6 +148,9 @@ model AbsenceRecord {
   updatedAt   DateTime      @updatedAt
 
   user        User          @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+  @@index([status])
 }
 
 model Conversation {
@@ -177,6 +187,8 @@ model Message {
   
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }
 
 model PayrollRecord {
@@ -199,6 +211,9 @@ model PayrollRecord {
   updatedAt               DateTime      @updatedAt
 
   user                    User          @relation(fields: [userId], references: [id])
+
+  @@index([userId, month])
+  @@index([month])
 }
 
 model AuditLog {
@@ -211,6 +226,9 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   admin       User     @relation("AuditLogs", fields: [adminId], references: [id])
+
+  @@index([createdAt])
+  @@index([adminId])
 }
 
 model OfficeSchedule {
@@ -226,6 +244,7 @@ model OfficeSchedule {
   user         User         @relation("UserOfficeSchedules", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
+  @@index([date])
 }
 
 model Meeting {
@@ -241,6 +260,9 @@ model Meeting {
 
   createdBy      User              @relation("CreatedMeetings", fields: [createdById], references: [id], onDelete: Cascade)
   attendees      MeetingAttendee[]
+
+  @@index([startTime, endTime])
+  @@index([createdById])
 }
 
 model MeetingAttendee {

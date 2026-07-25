@@ -117,20 +117,22 @@ export class AbsenceService {
     return this.mapRecord(record);
   }
 
-  async getMyRecords(userId: string): Promise<AbsenceRecordResponseDto[]> {
+  async getMyRecords(userId: string, limit = 100): Promise<AbsenceRecordResponseDto[]> {
     const records = await this.prisma.absenceRecord.findMany({
       where: { userId },
       include: { user: true },
       orderBy: { date: 'desc' },
+      take: limit,
     });
 
     return records.map((record) => this.mapRecord(record));
   }
 
-  async getAllRecords(): Promise<AbsenceRecordResponseDto[]> {
+  async getAllRecords(limit = 100): Promise<AbsenceRecordResponseDto[]> {
     const records = await this.prisma.absenceRecord.findMany({
       include: { user: true },
       orderBy: { createdAt: 'desc' },
+      take: limit,
     });
 
     return records.map((record) => this.mapRecord(record));
@@ -235,62 +237,61 @@ export class AbsenceService {
       return { processed: 0, created: 0 };
     }
 
-    const users = await this.prisma.user.findMany({
-      where: { isActive: true },
-    });
+    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+
+    const [users, todayAttendances, existingAbsences] = await Promise.all([
+      this.prisma.user.findMany({ where: { isActive: true } }),
+      this.prisma.attendance.findMany({
+        where: { clockInTime: { gte: startOfDay, lte: endOfDay } },
+        select: { employeeId: true },
+      }),
+      this.prisma.absenceRecord.findMany({
+        where: { date: dateStr },
+        select: { userId: true },
+      }),
+    ]);
+
+    const clockedInUserIds = new Set(todayAttendances.map((a) => a.employeeId));
+    const absenceUserIds = new Set(existingAbsences.map((a) => a.userId));
+
     let created = 0;
 
     for (const user of users) {
       if (user.employeeType === EmployeeType.PER_HOUR) continue; // no auto absence checks needed for hourly workers
 
-      const attendance = await this.prisma.attendance.findFirst({
-        where: {
-          employeeId: user.id,
-          clockInTime: {
-            gte: new Date(`${dateStr}T00:00:00.000Z`),
-            lte: new Date(`${dateStr}T23:59:59.999Z`),
-          },
-        },
-      });
-
-      if (!attendance) {
-        const existingAbsence = await this.prisma.absenceRecord.findFirst({
-          where: { userId: user.id, date: dateStr },
-        });
-
-        if (!existingAbsence) {
-          if (user.vacationDaysLeft > 0) {
-            await this.prisma.absenceRecord.create({
-              data: {
-                userId: user.id,
-                date: dateStr,
-                type: AbsenceType.REGULAR,
-                status: AbsenceStatus.APPROVED,
-                reason: 'Auto-detected absence (missed workday)',
-                isPaid: true,
-              },
-            });
-            await this.prisma.user.update({
-              where: { id: user.id },
-              data: {
-                vacationDaysLeft: user.vacationDaysLeft - 1,
-                absenceDaysLeft: Math.max(0, user.absenceDaysLeft - 1),
-              },
-            });
-          } else {
-            await this.prisma.absenceRecord.create({
-              data: {
-                userId: user.id,
-                date: dateStr,
-                type: AbsenceType.REGULAR,
-                status: AbsenceStatus.PENDING,
-                reason: 'Zero Balance - Missed workday (Requires HR Approval)',
-                isPaid: false,
-              },
-            });
-          }
-          created++;
+      if (!clockedInUserIds.has(user.id) && !absenceUserIds.has(user.id)) {
+        if (user.vacationDaysLeft > 0) {
+          await this.prisma.absenceRecord.create({
+            data: {
+              userId: user.id,
+              date: dateStr,
+              type: AbsenceType.REGULAR,
+              status: AbsenceStatus.APPROVED,
+              reason: 'Auto-detected absence (missed workday)',
+              isPaid: true,
+            },
+          });
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              vacationDaysLeft: user.vacationDaysLeft - 1,
+              absenceDaysLeft: Math.max(0, user.absenceDaysLeft - 1),
+            },
+          });
+        } else {
+          await this.prisma.absenceRecord.create({
+            data: {
+              userId: user.id,
+              date: dateStr,
+              type: AbsenceType.REGULAR,
+              status: AbsenceStatus.PENDING,
+              reason: 'Zero Balance - Missed workday (Requires HR Approval)',
+              isPaid: false,
+            },
+          });
         }
+        created++;
       }
     }
 

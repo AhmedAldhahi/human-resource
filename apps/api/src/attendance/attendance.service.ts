@@ -64,10 +64,21 @@ export class AttendanceService {
 
     const now = new Date();
     const tz = process.env.TIMEZONE || 'Asia/Riyadh';
-    const nowLocalStr = now.toLocaleString('en-US', { timeZone: tz });
-    const nowLocal = new Date(nowLocalStr);
-    const workStartLocal = new Date(nowLocal);
-    workStartLocal.setHours(9, 0, 0, 0);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    const year = parseInt(getPart('year'), 10);
+    const month = parseInt(getPart('month'), 10) - 1;
+    const day = parseInt(getPart('day'), 10);
+    const hour = parseInt(getPart('hour'), 10);
+    const minute = parseInt(getPart('minute'), 10);
+
+    const nowLocalMinutes = hour * 60 + minute;
+    const workStartMinutes = 9 * 60; // 09:00 AM
 
     let latePenalty = false;
     let penaltyMinutes = 0;
@@ -76,12 +87,10 @@ export class AttendanceService {
     if (
       user?.employeeType === EmployeeType.PER_HOUR &&
       workLocation === WorkLocation.OFFICE &&
-      nowLocal > workStartLocal
+      nowLocalMinutes > workStartMinutes
     ) {
       latePenalty = true;
-      penaltyMinutes = Math.floor(
-        (nowLocal.getTime() - workStartLocal.getTime()) / (1000 * 60),
-      );
+      penaltyMinutes = nowLocalMinutes - workStartMinutes;
     }
 
     const attendance = await this.prisma.attendance.create({
@@ -92,6 +101,9 @@ export class AttendanceService {
         workLocation,
         latePenalty,
         penaltyMinutes,
+      },
+      include: {
+        employee: { select: { name: true, email: true } },
       },
     });
 
@@ -197,6 +209,9 @@ export class AttendanceService {
         isException,
         exceptionStatus,
       },
+      include: {
+        employee: { select: { name: true, email: true } },
+      },
     });
 
     // Create records for any subsequent segments if shift crossed midnight
@@ -233,19 +248,23 @@ export class AttendanceService {
     return this.mapRecord(attendance);
   }
 
-  async getMyAttendance(employeeId: string): Promise<AttendanceResponseDto[]> {
+  async getMyAttendance(employeeId: string, limit = 100): Promise<AttendanceResponseDto[]> {
     const records = await this.prisma.attendance.findMany({
       where: { employeeId },
+      include: { employee: { select: { name: true, email: true } } },
       orderBy: { clockInTime: 'desc' },
+      take: limit,
     });
 
     return records.map((record) => this.mapRecord(record));
   }
 
-  async getByEmployee(employeeId: string): Promise<AttendanceResponseDto[]> {
+  async getByEmployee(employeeId: string, limit = 100): Promise<AttendanceResponseDto[]> {
     const records = await this.prisma.attendance.findMany({
       where: { employeeId },
+      include: { employee: { select: { name: true, email: true } } },
       orderBy: { clockInTime: 'desc' },
+      take: limit,
     });
 
     return records.map((record) => this.mapRecord(record));

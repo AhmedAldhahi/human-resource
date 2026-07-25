@@ -12,13 +12,13 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
 const DAYS_OF_WEEK = [
+  { key: 6, label: 'Sat', short: 'Sat' },
   { key: 0, label: 'Sun', short: 'Sun' },
   { key: 1, label: 'Mon', short: 'Mon' },
   { key: 2, label: 'Tue', short: 'Tue' },
   { key: 3, label: 'Wed', short: 'Wed' },
   { key: 4, label: 'Thu', short: 'Thu' },
   { key: 5, label: 'Fri', short: 'Fri' },
-  { key: 6, label: 'Sat', short: 'Sat' },
 ];
 
 export default function SchedulePage() {
@@ -30,12 +30,13 @@ export default function SchedulePage() {
   // Employee My Schedule State
   const [mySchedule, setMySchedule] = useState<MyScheduleSummaryDto | null>(null);
 
-  // HR Office Roster State
+  // HR Office Roster State (PER_HOUR Employees ONLY)
   const [employees, setEmployees] = useState<UserResponseDto[]>([]);
   const [rosterWeekStart, setRosterWeekStart] = useState<Date>(() => {
     const d = new Date();
-    const day = d.getDay(); // 0 = Sunday
-    d.setDate(d.getDate() - day); // Start at Sunday
+    const day = d.getDay(); // 0 = Sun, 6 = Sat
+    const diffToSaturday = (day + 1) % 7;
+    d.setDate(d.getDate() - diffToSaturday); // Start at Saturday
     return d;
   });
   const [rosterMatrix, setRosterMatrix] = useState<Record<string, Record<string, 'OFFICE' | 'HOME'>>>({});
@@ -100,7 +101,7 @@ export default function SchedulePage() {
     }
   };
 
-  // Load HR Roster Matrix
+  // Load HR Roster Matrix - ONLY HOURLY / PER_HOUR EMPLOYEES
   const fetchRoster = async () => {
     try {
       const [usersData, rosterData] = await Promise.all([
@@ -108,21 +109,19 @@ export default function SchedulePage() {
         scheduleApi.getOfficeRoster(weekStartStr, weekEndStr),
       ]);
 
-      const activeUsers = usersData.filter((u) => u.isActive);
-      setEmployees(activeUsers);
+      // ONLY keep active PER_HOUR employees for HR schedule management!
+      // Fixed income employees come to office by default and don't need scheduling.
+      const hourlyUsers = usersData.filter(
+        (u) => u.isActive && u.employeeType === EmployeeType.PER_HOUR
+      );
+      setEmployees(hourlyUsers);
 
-      // Default Logic:
-      // FIXED income employees default to 'OFFICE'
-      // PER_HOUR employees default to 'HOME'
       const matrix: Record<string, Record<string, 'OFFICE' | 'HOME'>> = {};
-      activeUsers.forEach((emp) => {
+      hourlyUsers.forEach((emp) => {
         matrix[emp.id] = {};
-        const isFixed = emp.employeeType === EmployeeType.FIXED;
-        const defaultLoc: 'OFFICE' | 'HOME' = isFixed ? 'OFFICE' : 'HOME';
-
         currentWeekDates.forEach((d) => {
           const dateKey = formatYmd(d);
-          matrix[emp.id][dateKey] = defaultLoc;
+          matrix[emp.id][dateKey] = 'HOME'; // Hourly default to Home
         });
       });
 
@@ -178,26 +177,41 @@ export default function SchedulePage() {
     setModalSelectedUserIds(currentlyInOffice);
   };
 
-  // Save Modal Assignments for Day
-  const applyModalAssignments = () => {
+  // Save Modal Assignments for Day (With Instant Auto-Save to DB)
+  const applyModalAssignments = async () => {
     if (!selectedDayForModal) return;
-    const { dateStr } = selectedDayForModal;
+    const { dateStr, dayLabel } = selectedDayForModal;
 
-    setRosterMatrix((prev) => {
-      const updated = { ...prev };
-      employees.forEach((emp) => {
-        if (!updated[emp.id]) updated[emp.id] = {};
-        const isSelected = modalSelectedUserIds.includes(emp.id);
-        updated[emp.id][dateStr] = isSelected ? 'OFFICE' : 'HOME';
+    const itemsToSave: { userId: string; date: string; workLocation: any }[] = [];
+    const updatedMatrix = { ...rosterMatrix };
+
+    employees.forEach((emp) => {
+      if (!updatedMatrix[emp.id]) updatedMatrix[emp.id] = {};
+      const isSelected = modalSelectedUserIds.includes(emp.id);
+      const loc = isSelected ? 'OFFICE' : 'HOME';
+      updatedMatrix[emp.id][dateStr] = loc;
+      itemsToSave.push({
+        userId: emp.id,
+        date: dateStr,
+        workLocation: loc,
       });
-      return updated;
     });
 
+    setRosterMatrix(updatedMatrix);
     setSelectedDayForModal(null);
+
+    // Auto-save to database immediately so selections are never lost
+    try {
+      await scheduleApi.setOfficeRoster({ schedules: itemsToSave });
+      setSuccessMsg(`✅ Saved office assignments for ${dayLabel}!`);
+      await fetchMySchedule();
+    } catch (err) {
+      console.error('Auto-save error:', err);
+    }
   };
 
-  // Remove single employee from day's Office list
-  const removeUserFromDayOffice = (userId: string, dateStr: string) => {
+  // Remove single employee from day's Office list (With Instant Auto-Save to DB)
+  const removeUserFromDayOffice = async (userId: string, dateStr: string) => {
     setRosterMatrix((prev) => ({
       ...prev,
       [userId]: {
@@ -205,6 +219,16 @@ export default function SchedulePage() {
         [dateStr]: 'HOME',
       },
     }));
+
+    try {
+      await scheduleApi.setOfficeRoster({
+        schedules: [{ userId, date: dateStr, workLocation: 'HOME' as any }],
+      });
+      setSuccessMsg('✅ Office assignment removed and saved!');
+      await fetchMySchedule();
+    } catch (err) {
+      console.error('Auto-remove error:', err);
+    }
   };
 
   // Save Roster Matrix to Database
@@ -225,7 +249,7 @@ export default function SchedulePage() {
       });
 
       await scheduleApi.setOfficeRoster({ schedules: itemsToSave });
-      setSuccessMsg('✅ Weekly Office Roster saved and published successfully!');
+      setSuccessMsg('✅ Weekly Hourly Office Roster saved and published successfully!');
       await fetchMySchedule();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to save roster.');
@@ -235,21 +259,33 @@ export default function SchedulePage() {
   };
 
   // 📸 1-Click High-Res Schedule PNG Image Exporter tailored for Slack
+  // Lists ONLY Hourly Employees scheduled to come to Office + Meetings
   const handleExportImage = async () => {
     setExportingImage(true);
     try {
+      // Fetch fresh meetings from API to ensure all scheduled meetings are included
+      const latestMeetings = await scheduleApi.getMeetings().catch(() => meetings);
+
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const colWidth = 190;
+      const colWidth = 200;
       const startX = 40;
       canvas.width = startX * 2 + colWidth * 7;
 
       const dailyData = currentWeekDates.map((d, idx) => {
         const dateStr = formatYmd(d);
         const officeEmps = employees.filter((emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE');
-        const dayMeetings = meetings.filter((m) => formatYmd(new Date(m.startTime)) === dateStr);
+
+        // Robust meeting date matching (local date & UTC date string)
+        const dayMeetings = latestMeetings.filter((m) => {
+          if (!m.startTime) return false;
+          const mDateObj = new Date(m.startTime);
+          const mLocalStr = formatYmd(mDateObj);
+          const mUtcStr = m.startTime.substring(0, 10);
+          return mLocalStr === dateStr || mUtcStr === dateStr;
+        });
 
         return {
           dayLabel: DAYS_OF_WEEK[idx].short,
@@ -264,7 +300,7 @@ export default function SchedulePage() {
 
       const headerHeight = 130;
       const dayHeaderHeight = 50;
-      const officeSectionHeight = 40 + maxOfficeCount * 28 + 15;
+      const officeSectionHeight = 40 + maxOfficeCount * 30 + 15;
       const meetingSectionHeight = 40 + maxMeetingsCount * 45 + 20;
       const footerHeight = 60;
 
@@ -286,11 +322,11 @@ export default function SchedulePage() {
 
       ctx.fillStyle = '#00f2fe';
       ctx.font = 'bold 26px Inter, sans-serif';
-      ctx.fillText('🏢 VOADERA — WEEKLY OFFICE ROSTER & MEETINGS', startX + 25, 62);
+      ctx.fillText('🏢 VOADERA — HOURLY OFFICE SCHEDULE & MEETINGS', startX + 25, 62);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '14px Inter, sans-serif';
-      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Office Attendance & Scheduled Meetings`, startX + 25, 88);
+      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Hourly Staff Office Attendance & Scheduled Meetings`, startX + 25, 88);
 
       // Day Column Headers
       let currentY = headerHeight;
@@ -309,12 +345,12 @@ export default function SchedulePage() {
         ctx.fillText(`${d.dayLabel} (${d.dateDisplay})`, colX + colWidth / 2, currentY + 26);
       });
 
-      // Section 1: Office Attendees List
+      // Section 1: Hourly Office Attendees List
       currentY += dayHeaderHeight;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#00ff9d';
       ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillText('🏢 OFFICE ATTENDEES (ON-SITE)', startX + 5, currentY + 18);
+      ctx.fillText('🏢 HOURLY OFFICE ATTENDEES', startX + 5, currentY + 18);
 
       currentY += 28;
 
@@ -326,28 +362,28 @@ export default function SchedulePage() {
           ctx.fillStyle = '#64748b';
           ctx.font = 'italic 11px Inter, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('No office attendees', colX + colWidth / 2, empY + 18);
+          ctx.fillText('No hourly staff scheduled', colX + colWidth / 2, empY + 18);
         } else {
           d.officeEmps.forEach((emp) => {
-            ctx.fillStyle = 'rgba(0, 255, 157, 0.15)';
-            ctx.fillRect(colX + 6, empY, colWidth - 12, 24);
-            ctx.strokeStyle = 'rgba(0, 255, 157, 0.4)';
+            ctx.fillStyle = 'rgba(10, 25, 47, 0.9)';
+            ctx.fillRect(colX + 6, empY, colWidth - 12, 26);
+            ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(colX + 6, empY, colWidth - 12, 24);
+            ctx.strokeRect(colX + 6, empY, colWidth - 12, 26);
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.font = 'bold 12px Inter, sans-serif';
             ctx.textAlign = 'center';
-            const shortName = emp.name.length > 18 ? emp.name.substring(0, 16) + '…' : emp.name;
-            ctx.fillText(`• ${shortName}`, colX + colWidth / 2, empY + 16);
+            const shortName = emp.name.length > 20 ? emp.name.substring(0, 18) + '…' : emp.name;
+            ctx.fillText(`🏢 ${shortName}`, colX + colWidth / 2, empY + 18);
 
-            empY += 28;
+            empY += 30;
           });
         }
       });
 
       // Section 2: Meetings List
-      currentY += maxOfficeCount * 28 + 25;
+      currentY += maxOfficeCount * 30 + 25;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#c084fc';
       ctx.font = 'bold 13px Inter, sans-serif';
@@ -401,7 +437,7 @@ export default function SchedulePage() {
       canvas.toBlob((blob) => {
         if (!blob) return;
         const link = document.createElement('a');
-        link.download = `Voadera_Office_Schedule_&_Meetings_${weekStartStr}.png`;
+        link.download = `Voadera_Hourly_Schedule_&_Meetings_${weekStartStr}.png`;
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
@@ -532,7 +568,7 @@ export default function SchedulePage() {
             <span>📅 Company Schedule & Meetings</span>
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Track your required office days, upcoming meetings, and view team rosters
+            Track required office days, upcoming meetings, and manage hourly staff rosters
           </p>
         </div>
 
@@ -557,7 +593,7 @@ export default function SchedulePage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              🏢 Office Roster Manager
+              🏢 Hourly Office Roster
             </button>
             <button
               onClick={() => setActiveTab('meetings')}
@@ -621,13 +657,13 @@ export default function SchedulePage() {
                     {isTodayOffice
                       ? 'Please make sure to clock in at the Office workspace today.'
                       : (isFixedIncomeUser
-                          ? 'You are approved to work remotely from home today.'
-                          : 'You are working remotely from home today (Default for Hour-based).')}
+                          ? 'Fixed income employees work at office by default.'
+                          : 'You are working remotely from home today (Default for Hourly staff).')}
                   </p>
                 </div>
               </div>
 
-              {/* ROUTE FIX: /dashboard/attendance */}
+              {/* ROUTE: /dashboard/attendance */}
               <Link
                 to="/dashboard/attendance"
                 className="gradient-btn px-6 py-3.5 text-sm font-extrabold text-white flex items-center justify-center gap-2 shadow-xl whitespace-nowrap self-start md:self-auto hover:scale-105 transition-transform"
@@ -777,7 +813,7 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* TAB 2: HR OFFICE ROSTER MANAGER (HIGH CONTRAST THEME STYLING) */}
+      {/* TAB 2: HR HOURLY OFFICE ROSTER MANAGER (RESPONSIVE GRID + ROYAL NAVY GLASSY BLOCKS) */}
       {activeTab === 'roster' && isHrOrAdmin && (
         <div className="space-y-6">
           {/* Controls Bar */}
@@ -836,14 +872,19 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          {/* 7 DAY CARDS GRID (HIGH CONTRAST & READABLE EVERYWHERE) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4" ref={exportTableRef}>
+          <div className="bg-indigo-950/30 border border-indigo-500/20 p-3 rounded-xl text-xs text-indigo-300 flex items-center justify-between">
+            <span>ℹ️ <strong>Note:</strong> Fixed income employees come to office by default. This schedule manager is for assigning <strong>Hourly / Per-Hour employees</strong> coming to the office.</span>
+            <span className="font-bold text-white">{employees.length} Hourly Employees Total</span>
+          </div>
+
+          {/* RESPONSIVE GRID LAYOUT (COMFORTABLE WIDTH ON ALL SCREENS) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4" ref={exportTableRef}>
             {currentWeekDates.map((d, idx) => {
               const dateStr = formatYmd(d);
               const dayLabel = `${DAYS_OF_WEEK[idx].label} ${d.getDate()}/${d.getMonth() + 1}`;
               const isToday = dateStr === formatYmd(new Date());
 
-              // Employees coming to Office on this day
+              // Hourly employees coming to Office on this day
               const officeEmployees = employees.filter(
                 (emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE'
               );
@@ -853,52 +894,55 @@ export default function SchedulePage() {
                   key={dateStr}
                   className={`glass-card p-5 rounded-2xl flex flex-col justify-between space-y-4 border transition-all ${
                     isToday
-                      ? 'border-2 border-cyan-400 bg-cyan-950/40 shadow-lg ring-1 ring-cyan-500/40'
-                      : 'bg-slate-900/90 border-white/15'
+                      ? 'border-2 border-cyan-400 bg-[#0a192f] shadow-xl ring-2 ring-cyan-500/40'
+                      : 'bg-[#0a192f] border-cyan-500/30 shadow-lg'
                   }`}
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {/* Day Title & Date */}
-                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                    <div className="flex justify-between items-center pb-2.5 border-b border-cyan-500/20">
                       <div>
                         <span className="text-xs font-black text-cyan-400 uppercase tracking-wider block">
                           {DAYS_OF_WEEK[idx].label}
                         </span>
-                        <span className="text-sm font-extrabold text-white">
+                        <span className="text-base font-extrabold text-white">
                           {d.getDate()}/{d.getMonth() + 1}
                         </span>
                       </div>
                       {isToday && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-cyan-400 text-slate-950">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-400 text-slate-950 shadow-md">
                           TODAY
                         </span>
                       )}
                     </div>
 
                     {/* Attendance Count */}
-                    <div className="text-[11px] font-extrabold text-slate-300 flex items-center justify-between">
-                      <span>Office Attendees:</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black">
+                    <div className="text-xs font-extrabold text-slate-300 flex items-center justify-between">
+                      <span>Hourly Attendees:</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black">
                         {officeEmployees.length}
                       </span>
                     </div>
 
-                    {/* List of Office Employees */}
-                    <div className="space-y-1.5 pt-2 min-h-[140px] max-h-[220px] overflow-y-auto">
+                    {/* ROYAL NAVY GLASSY BLOCKS FOR NAMES (WHITE BOLD FONTS) */}
+                    <div className="space-y-2 pt-1 min-h-[140px] max-h-[220px] overflow-y-auto pr-1">
                       {officeEmployees.length === 0 ? (
-                        <div className="text-center py-6 text-[11px] text-slate-400 italic">
-                          No employees assigned to office
+                        <div className="text-center py-8 text-xs text-slate-400 italic">
+                          No hourly staff scheduled for office
                         </div>
                       ) : (
                         officeEmployees.map((emp) => (
                           <div
                             key={emp.id}
-                            className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-xs font-extrabold group hover:bg-emerald-500/30 transition-colors shadow-sm"
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-white text-xs font-extrabold shadow-md hover:border-cyan-400 transition-all group"
                           >
-                            <span className="truncate pr-1">• {emp.name}</span>
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-cyan-400">🏢</span>
+                              <span className="text-white font-black truncate">{emp.name}</span>
+                            </div>
                             <button
                               onClick={() => removeUserFromDayOffice(emp.id, dateStr)}
-                              className="text-emerald-300 hover:text-red-400 font-black px-1 transition-colors"
+                              className="text-slate-400 hover:text-red-400 font-black px-1.5 text-sm transition-colors"
                               title="Remove from Office list"
                             >
                               ✕
@@ -909,10 +953,10 @@ export default function SchedulePage() {
                     </div>
                   </div>
 
-                  {/* Assign Button (SOLID INDIGO + BRIGHT WHITE TEXT) */}
+                  {/* ACTION BUTTON (CYAN/BLUE GRADIENT + WHITE TEXT) */}
                   <button
                     onClick={() => openAssignModalForDay(dateStr, dayLabel)}
-                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md transition-all hover:scale-105"
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-black shadow-lg flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02]"
                   >
                     <span>➕ Choose Office Employees</span>
                   </button>
@@ -923,14 +967,14 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* HR DAY ASSIGNMENT MODAL WITH SEARCH & MULTI-SELECT */}
+      {/* HR DAY ASSIGNMENT MODAL (HOURLY EMPLOYEES ONLY) */}
       {selectedDayForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="glass-card border border-white/20 max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl rounded-2xl bg-slate-900">
+          <div className="glass-card border border-cyan-500/30 max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl rounded-2xl bg-[#0a192f]">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-extrabold text-white">
-                  Assign Office Employees
+                  Assign Hourly Staff to Office
                 </h3>
                 <p className="text-xs text-cyan-400 font-semibold mt-0.5">
                   Selecting for {selectedDayForModal.dayLabel}
@@ -951,26 +995,23 @@ export default function SchedulePage() {
                 type="text"
                 value={modalSearch}
                 onChange={(e) => setModalSearch(e.target.value)}
-                placeholder="Search employee by name or email..."
-                className="input-field text-xs pl-9 py-2.5 text-white"
+                placeholder="Search hourly employee by name..."
+                className="input-field text-xs pl-9 py-2.5 text-white bg-slate-900 border-cyan-500/30"
               />
             </div>
 
             {/* Quick Actions */}
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-300 font-semibold">
-                Selected: <strong className="text-emerald-400 font-black">{modalSelectedUserIds.length}</strong> employees
+                Selected: <strong className="text-cyan-400 font-black">{modalSelectedUserIds.length}</strong> hourly employees
               </span>
               <div className="space-x-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    const fixedIds = employees.filter((e) => e.employeeType === EmployeeType.FIXED).map((e) => e.id);
-                    setModalSelectedUserIds(Array.from(new Set([...modalSelectedUserIds, ...fixedIds])));
-                  }}
-                  className="text-indigo-400 hover:underline font-bold"
+                  onClick={() => setModalSelectedUserIds(employees.map((e) => e.id))}
+                  className="text-cyan-400 hover:underline font-bold"
                 >
-                  Select All Fixed Income
+                  Select All
                 </button>
                 <button
                   type="button"
@@ -983,52 +1024,53 @@ export default function SchedulePage() {
             </div>
 
             {/* Employee Checkboxes */}
-            <div className="max-h-60 overflow-y-auto space-y-1.5 bg-slate-950 p-4 rounded-xl border border-white/10">
-              {employees
-                .filter(
-                  (emp) =>
-                    !modalSearch.trim() ||
-                    emp.name.toLowerCase().includes(modalSearch.toLowerCase()) ||
-                    emp.email.toLowerCase().includes(modalSearch.toLowerCase())
-                )
-                .map((emp) => {
-                  const isChecked = modalSelectedUserIds.includes(emp.id);
-                  const isFixed = emp.employeeType === EmployeeType.FIXED;
+            <div className="max-h-60 overflow-y-auto space-y-2 bg-slate-900/90 p-4 rounded-xl border border-cyan-500/20">
+              {employees.length === 0 ? (
+                <div className="text-center py-4 text-xs text-slate-400">
+                  No active hourly employees found.
+                </div>
+              ) : (
+                employees
+                  .filter(
+                    (emp) =>
+                      !modalSearch.trim() ||
+                      emp.name.toLowerCase().includes(modalSearch.toLowerCase()) ||
+                      emp.email.toLowerCase().includes(modalSearch.toLowerCase())
+                  )
+                  .map((emp) => {
+                    const isChecked = modalSelectedUserIds.includes(emp.id);
 
-                  return (
-                    <label
-                      key={emp.id}
-                      className={`flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer border transition-colors ${
-                        isChecked
-                          ? 'bg-emerald-500/20 border-emerald-500/40 text-white font-extrabold'
-                          : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setModalSelectedUserIds([...modalSelectedUserIds, emp.id]);
-                            } else {
-                              setModalSelectedUserIds(modalSelectedUserIds.filter((id) => id !== emp.id));
-                            }
-                          }}
-                          className="rounded border-slate-700 bg-slate-900 w-4 h-4 text-indigo-600"
-                        />
-                        <span>{emp.name}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        isFixed
-                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      }`}>
-                        {isFixed ? 'Fixed Income' : 'Per Hour'}
-                      </span>
-                    </label>
-                  );
-                })}
+                    return (
+                      <label
+                        key={emp.id}
+                        className={`flex items-center justify-between p-3 rounded-xl text-xs cursor-pointer border transition-all ${
+                          isChecked
+                            ? 'bg-cyan-500/20 border-cyan-400 text-white font-extrabold shadow-md'
+                            : 'bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setModalSelectedUserIds([...modalSelectedUserIds, emp.id]);
+                              } else {
+                                setModalSelectedUserIds(modalSelectedUserIds.filter((id) => id !== emp.id));
+                              }
+                            }}
+                            className="rounded border-slate-700 bg-slate-900 w-4 h-4 text-cyan-500 focus:ring-cyan-400"
+                          />
+                          <span className="text-white font-extrabold">{emp.name}</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Per Hour
+                        </span>
+                      </label>
+                    );
+                  })
+              )}
             </div>
 
             {/* Modal Actions */}

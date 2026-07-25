@@ -260,13 +260,14 @@ export class ScheduleService {
     });
     const todayScheduledLocation = (todaySchedule?.workLocation as WorkLocation) || defaultLocation;
 
-    // Get current week start (Sunday) and end (Saturday)
+    // Get current week start (Saturday) and end (Friday)
     const todayDate = new Date();
-    const dayOfWeek = todayDate.getDay(); // 0 = Sunday
+    const dayOfWeek = todayDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const diffToSaturday = (dayOfWeek + 1) % 7;
     const startOfWeek = new Date(todayDate);
-    startOfWeek.setDate(todayDate.getDate() - dayOfWeek);
+    startOfWeek.setDate(todayDate.getDate() - diffToSaturday);
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Friday
 
     const startStr = startOfWeek.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
     const endStr = endOfWeek.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });

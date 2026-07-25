@@ -38,47 +38,58 @@ export class ChatService {
       orderBy: { conversation: { updatedAt: 'desc' } },
     });
 
-    return participations.map(p => {
-      const conv = p.conversation;
-      const otherParticipant = conv.participants[0]?.user;
-      
-      // Calculate unread count
-      const lastReadAt = p.lastReadAt || p.joinedAt;
-      
-      return {
-        id: conv.id,
-        title: conv.isGroup ? conv.title : otherParticipant?.name,
-        isGroup: conv.isGroup,
-        photoUrl: conv.isGroup ? null : otherParticipant?.photoUrl,
-        customStatus: conv.isGroup ? null : otherParticipant?.customStatus,
-        lastMessage: conv.messages[0],
-        unreadCount: 0,
-        lastReadAt: p.lastReadAt,
-        updatedAt: conv.updatedAt,
-        partnerId: conv.isGroup ? null : otherParticipant?.id,
-      };
-    });
+    return Promise.all(
+      participations.map(async (p) => {
+        const conv = p.conversation;
+        const otherParticipant = conv.participants[0]?.user;
+        const lastReadAt = p.lastReadAt || p.joinedAt;
+
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            senderId: { not: userId },
+            createdAt: { gt: lastReadAt },
+          },
+        });
+
+        return {
+          id: conv.id,
+          title: conv.isGroup ? conv.title : otherParticipant?.name,
+          isGroup: conv.isGroup,
+          photoUrl: conv.isGroup ? null : otherParticipant?.photoUrl,
+          customStatus: conv.isGroup ? null : otherParticipant?.customStatus,
+          lastMessage: conv.messages[0] || null,
+          unreadCount,
+          lastReadAt: p.lastReadAt,
+          updatedAt: conv.updatedAt,
+          partnerId: conv.isGroup ? null : otherParticipant?.id,
+        };
+      })
+    );
   }
 
-  async getConversationMessages(conversationId: string, userId: string) {
+  async getConversationMessages(conversationId: string, userId: string, limit = 100) {
     // Verify participation
     const participant = await this.prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
-    
+
     if (!participant) {
       throw new NotFoundException('Conversation not found or you are not a participant');
     }
 
-    return this.prisma.message.findMany({
+    const messages = await this.prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
       include: {
         sender: {
           select: { id: true, name: true, photoUrl: true },
         },
       },
     });
+
+    return messages.reverse();
   }
 
   async findOrCreateDirectConversation(user1Id: string, user2Id: string) {

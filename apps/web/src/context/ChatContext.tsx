@@ -51,6 +51,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
+  const activeConversationRef = React.useRef<string | null>(activeConversation);
+
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
 
   useEffect(() => {
     if (!user) {
@@ -77,24 +82,21 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     newSocket.on('new_message', (msg: ChatMessage) => {
       setMessages((prev) => {
-        // Only append if it belongs to the active conversation OR if we are handling global state
-        if (msg.conversationId === activeConversation) {
+        if (msg.conversationId === activeConversationRef.current) {
           return [...prev, msg];
         }
         return prev;
       });
 
-      // Update conversations list with the new message
       setConversations((prev) => {
         const updated = [...prev];
         const idx = updated.findIndex((c) => c.id === msg.conversationId);
         if (idx !== -1) {
           updated[idx].lastMessage = msg;
           updated[idx].updatedAt = new Date().toISOString();
-          if (msg.conversationId !== activeConversation && msg.senderId !== user.id) {
+          if (msg.conversationId !== activeConversationRef.current && msg.senderId !== user.id) {
             updated[idx].unreadCount = (updated[idx].unreadCount || 0) + 1;
           }
-          // Move to top
           const [moved] = updated.splice(idx, 1);
           updated.unshift(moved);
         }
@@ -102,8 +104,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       });
     });
 
-    newSocket.on('conversation_updated', (data: { conversationId: string; lastMessage: ChatMessage }) => {
-      // Used when a new conversation is created that we haven't fetched yet
+    newSocket.on('conversation_updated', () => {
       fetchConversations();
     });
 
@@ -122,7 +123,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       newSocket.disconnect();
     };
-  }, [user, activeConversation]);
+  }, [user]);
 
   const fetchConversations = async () => {
     try {

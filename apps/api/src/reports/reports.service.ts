@@ -63,18 +63,31 @@ export class ReportsService {
   async getAttendanceTrend(days: number = 7): Promise<AttendanceReportDto[]> {
     const result: AttendanceReportDto[] = [];
     const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+
+    const allAttendances = await this.prisma.attendance.findMany({
+      where: { clockInTime: { gte: startDate } },
+    });
+
+    const attendancesByDate: Record<string, typeof allAttendances> = {};
 
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-      const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+      attendancesByDate[dateStr] = [];
+    }
 
-      const attendances = await this.prisma.attendance.findMany({
-        where: { clockInTime: { gte: startOfDay, lte: endOfDay } },
-      });
+    for (const att of allAttendances) {
+      const dateStr = att.clockInTime.toISOString().split('T')[0];
+      if (attendancesByDate[dateStr]) {
+        attendancesByDate[dateStr].push(att);
+      }
+    }
 
+    for (const [dateStr, attendances] of Object.entries(attendancesByDate)) {
       result.push({
         date: dateStr,
         totalClockIns: attendances.length,
@@ -93,29 +106,44 @@ export class ReportsService {
     const targetMonth = month !== undefined ? month - 1 : new Date().getMonth();
 
     const startOfMonth = new Date(targetYear, targetMonth, 1);
-    const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+    const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
+    const startStr = startOfMonth.toISOString().split('T')[0];
+    const endStr = endOfMonth.toISOString().split('T')[0];
 
     const users = await this.prisma.user.findMany({
       where: { isActive: true },
+      include: {
+        attendances: {
+          where: {
+            clockInTime: { gte: startOfMonth, lte: endOfMonth },
+            status: AttendanceStatus.CLOCKED_OUT,
+            clockOutTime: { not: null },
+          },
+        },
+        absenceRecords: {
+          where: {
+            date: { gte: startStr, lte: endStr },
+            status: AbsenceStatus.APPROVED,
+            isPaid: false,
+          },
+        },
+        receivedCards: {
+          where: {
+            issuedAt: { gte: startOfMonth, lte: endOfMonth },
+          },
+          select: { cardType: true },
+        },
+      },
       orderBy: { name: 'asc' },
     });
 
     const items: PayrollItemDto[] = [];
 
     for (const user of users) {
-      const attendances = await this.prisma.attendance.findMany({
-        where: {
-          employeeId: user.id,
-          clockInTime: { gte: startOfMonth, lte: endOfMonth },
-          status: AttendanceStatus.CLOCKED_OUT,
-          clockOutTime: { not: null },
-        },
-      });
-
       let totalMinutesWorked = 0;
       let penaltyMinutesTotal = 0;
 
-      for (const att of attendances) {
+      for (const att of user.attendances) {
         if (att.clockOutTime) {
           const diffMs = att.clockOutTime.getTime() - att.clockInTime.getTime();
           const shiftMins = Math.floor(diffMs / (1000 * 60));
@@ -130,31 +158,9 @@ export class ReportsService {
 
       const netMinutes = Math.max(0, totalMinutesWorked - penaltyMinutesTotal);
       const totalHoursWorked = Math.round((netMinutes / 60) * 100) / 100;
+      const unpaidAbsenceDays = user.absenceRecords.length;
 
-      // Count unpaid absences in this month
-      const absences = await this.prisma.absenceRecord.findMany({
-        where: {
-          userId: user.id,
-          date: {
-            gte: startOfMonth.toISOString().split('T')[0],
-            lte: endOfMonth.toISOString().split('T')[0],
-          },
-          status: AbsenceStatus.APPROVED,
-          isPaid: false,
-        },
-      });
-      const unpaidAbsenceDays = absences.length;
-
-      // Query performance cards specifically issued in this target month
-      const monthCards = await this.prisma.performanceCard.findMany({
-        where: {
-          employeeId: user.id,
-          issuedAt: { gte: startOfMonth, lte: endOfMonth },
-        },
-        select: { cardType: true },
-      });
-
-      const monthPoints = monthCards.reduce(
+      const monthPoints = user.receivedCards.reduce(
         (sum, c) => sum + (CARD_POINT_VALUES[c.cardType as keyof typeof CARD_POINT_VALUES] || 0),
         0,
       );
@@ -166,12 +172,10 @@ export class ReportsService {
       const pointsAdjustment = monthPoints; // $1 per card point
 
       if (empType === EmployeeType.FIXED) {
-        // Fixed salary minus unpaid absence deductions plus card points
         const dailyRate = monthlySalary / 22; // ~22 working days
         const deduction = unpaidAbsenceDays * dailyRate;
         calculatedCompensation = Math.max(0, monthlySalary - deduction + pointsAdjustment);
       } else {
-        // Per-hour rate times net worked hours plus card points
         calculatedCompensation = Math.max(0, totalHoursWorked * hourlyWage + pointsAdjustment);
       }
 
