@@ -434,3 +434,70 @@ export interface TrackerSecurityAlertDto {
   totalGenuineMinutes?: number | null;
 }
 
+// ─── Schedule & Meeting DTOs ────────────────────────────────────────────────
+
+export interface OfficeScheduleDto {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  userPhotoUrl?: string | null;
+  date: string; // YYYY-MM-DD
+  workLocation: WorkLocation; // OFFICE or HOME
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SetOfficeRosterDto {
+  schedules: {
+    userId: string;
+    date: string;
+    workLocation: WorkLocation;
+    notes?: string;
+  }[];
+}
+
+export interface MeetingAttendeeDto {
+  id: string;
+  meetingId: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  userPhotoUrl?: string | null;
+  joinedAt: string;
+}
+
+export interface MeetingDto {
+  id: string;
+  title: string;
+  description?: string | null;
+  startTime: string;
+  endTime: string;
+  locationOrLink?: string | null;
+  createdById: string;
+  creatorName?: string;
+  createdAt: string;
+  updatedAt: string;
+  attendees: MeetingAttendeeDto[];
+}
+
+export interface CreateMeetingDto {
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  locationOrLink?: string;
+  attendeeIds: string[];
+}
+
+export interface MyScheduleSummaryDto {
+  todayScheduledLocation: WorkLocation;
+  officeDaysThisWeek: string[];
+  homeDaysThisWeek: string[];
+  weeklyRoster: OfficeScheduleDto[];
+  upcomingMeetings: MeetingDto[];
+}
+
+

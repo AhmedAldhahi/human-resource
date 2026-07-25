@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttendanceResponseDto, AttendanceStatus, UpdateAttendanceDto, WorkLocation, ClockOutDto } from '@hrms/shared';
+import { AttendanceResponseDto, AttendanceStatus, UpdateAttendanceDto, WorkLocation, ClockOutDto, EmployeeType } from '@hrms/shared';
 import { PresenceGateway } from '../presence/presence.gateway';
 import { TrackerService } from '../tracker/tracker.service';
 
@@ -57,6 +57,11 @@ export class AttendanceService {
       );
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: { tsUsername: true, employeeType: true },
+    });
+
     const now = new Date();
     const tz = process.env.TIMEZONE || 'Asia/Riyadh';
     const nowLocalStr = now.toLocaleString('en-US', { timeZone: tz });
@@ -67,7 +72,12 @@ export class AttendanceService {
     let latePenalty = false;
     let penaltyMinutes = 0;
 
-    if (workLocation === WorkLocation.OFFICE && nowLocal > workStartLocal) {
+    // Late penalty ONLY applies to hours-based (PER_HOUR) employees
+    if (
+      user?.employeeType === EmployeeType.PER_HOUR &&
+      workLocation === WorkLocation.OFFICE &&
+      nowLocal > workStartLocal
+    ) {
       latePenalty = true;
       penaltyMinutes = Math.floor(
         (nowLocal.getTime() - workStartLocal.getTime()) / (1000 * 60),
@@ -87,13 +97,9 @@ export class AttendanceService {
 
     this.presenceGateway?.broadcastPresenceUpdate();
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: employeeId },
-      select: { tsUsername: true },
-    });
     if (user?.tsUsername) {
       const inOffice = workLocation === WorkLocation.OFFICE;
-      this.trackerService?.syncOfficeStatus(user.tsUsername, inOffice, now);
+      await this.trackerService?.syncOfficeStatus(user.tsUsername, inOffice, now);
     }
 
     return this.mapRecord(attendance);

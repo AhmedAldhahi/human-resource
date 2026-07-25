@@ -19,6 +19,7 @@ const TrackerPage = React.lazy(() => import('../pages/TrackerPage').then(m => ({
 const ChatPage = React.lazy(() => import('../pages/ChatPage'));
 const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagementPage'));
 const AuditLogPage = React.lazy(() => import('../pages/AuditLogPage'));
+const SchedulePage = React.lazy(() => import('../pages/SchedulePage'));
 
 const PageLoader = () => (
   <div className="flex h-screen items-center justify-center bg-slate-950">
@@ -53,6 +54,7 @@ export function App() {
             <Route path="presence" element={<PresencePage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="attendance" element={<AttendancePage />} />
+            <Route path="schedule" element={<SchedulePage />} />
             <Route path="absence" element={<AbsencePage />} />
             <Route path="my-cards" element={<MyCardsPage />} />
             <Route path="chat" element={<ChatPage />} />

@@ -29,6 +29,11 @@ import type {
   SavePayrollDto,
   PayrollRecordDto,
   AuditLogResponseDto,
+  OfficeScheduleDto,
+  SetOfficeRosterDto,
+  MeetingDto,
+  CreateMeetingDto,
+  MyScheduleSummaryDto,
 } from '@hrms/shared';
 
 const getBaseUrl = () => {
@@ -366,6 +371,49 @@ export const payrollApi = {
   getHistory: async (month?: string): Promise<(PayrollRecordDto & { userName: string; email: string })[]> => {
     const query = month ? `?month=${month}` : '';
     const { data } = await apiClient.get<(PayrollRecordDto & { userName: string; email: string })[]>(`/payroll/history${query}`);
+    return data;
+  },
+};
+
+// ── Schedule & Meetings ──────────────────────────────────────────────────────
+export const scheduleApi = {
+  getMySchedule: async (): Promise<MyScheduleSummaryDto> => {
+    const { data } = await apiClient.get<MyScheduleSummaryDto>('/schedule/my-schedule');
+    return data;
+  },
+
+  getOfficeRoster: async (start?: string, end?: string, userId?: string): Promise<OfficeScheduleDto[]> => {
+    const query = new URLSearchParams();
+    if (start) query.append('start', start);
+    if (end) query.append('end', end);
+    if (userId) query.append('userId', userId);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const { data } = await apiClient.get<OfficeScheduleDto[]>(`/schedule/office-roster${qs}`);
+    return data;
+  },
+
+  setOfficeRoster: async (dto: SetOfficeRosterDto): Promise<{ count: number }> => {
+    const { data } = await apiClient.post<{ count: number }>('/schedule/office-roster', dto);
+    return data;
+  },
+
+  getMeetings: async (): Promise<MeetingDto[]> => {
+    const { data } = await apiClient.get<MeetingDto[]>('/schedule/meetings');
+    return data;
+  },
+
+  createMeeting: async (dto: CreateMeetingDto): Promise<MeetingDto> => {
+    const { data } = await apiClient.post<MeetingDto>('/schedule/meetings', dto);
+    return data;
+  },
+
+  updateMeeting: async (id: string, dto: Partial<CreateMeetingDto>): Promise<MeetingDto> => {
+    const { data } = await apiClient.patch<MeetingDto>(`/schedule/meetings/${id}`, dto);
+    return data;
+  },
+
+  deleteMeeting: async (id: string): Promise<{ success: boolean }> => {
+    const { data } = await apiClient.delete<{ success: boolean }>(`/schedule/meetings/${id}`);
     return data;
   },
 };

@@ -15,6 +15,7 @@ import { ChatModule } from '../chat/chat.module';
 import { PayrollModule } from '../payroll/payroll.module';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { AuditModule } from '../audit/audit.module';
+import { ScheduleModule } from '../schedule/schedule.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AuditModule } from '../audit/audit.module';
     ChatModule,
     PayrollModule,
     AuditModule,
+    ScheduleModule,
   ],
 })
 export class AppModule {}

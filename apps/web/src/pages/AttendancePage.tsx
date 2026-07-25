@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { attendanceApi } from '../api/client';
-import { AttendanceStatus, WorkLocation, Role } from '@hrms/shared';
+import { attendanceApi, scheduleApi } from '../api/client';
+import { AttendanceStatus, WorkLocation, Role, EmployeeType } from '@hrms/shared';
 import type { AttendanceResponseDto } from '@hrms/shared';
 import { useAuth } from '../context/AuthContext';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
@@ -18,6 +18,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState('');
   const [workLocation, setWorkLocation] = useState<WorkLocation>(WorkLocation.OFFICE);
+  const [scheduledLocation, setScheduledLocation] = useState<WorkLocation | null>(null);
   const [completedTasksCount, setCompletedTasksCount] = useState<string>('');
   const [clockOutNote, setClockOutNote] = useState<string>('');
   const [authorizationName, setAuthorizationName] = useState<string>('');
@@ -28,8 +29,15 @@ export default function AttendancePage() {
 
   const fetchRecords = async () => {
     try {
-      const data = await attendanceApi.getMyAttendance();
+      const [data, sched] = await Promise.all([
+        attendanceApi.getMyAttendance(),
+        scheduleApi.getMySchedule().catch(() => null),
+      ]);
       setRecords(data);
+      if (sched?.todayScheduledLocation) {
+        setScheduledLocation(sched.todayScheduledLocation);
+        setWorkLocation(sched.todayScheduledLocation);
+      }
 
       if (isHrOrAdmin) {
         const exceptions = await attendanceApi.getAllExceptions('ALL');
@@ -57,7 +65,7 @@ export default function AttendancePage() {
 
   const now = new Date();
   const isAfterNine = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 0);
-  const willBeLate = workLocation === WorkLocation.OFFICE && isAfterNine;
+  const willBeLate = user?.employeeType === EmployeeType.PER_HOUR && workLocation === WorkLocation.OFFICE && isAfterNine;
 
   const handleClockIn = async () => {
     setError('');
@@ -474,6 +482,21 @@ export default function AttendancePage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Today's Schedule Requirement Banner */}
+            {scheduledLocation && (
+              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3.5 flex items-center justify-between text-xs text-indigo-300">
+                <span className="font-semibold flex items-center gap-2">
+                  <span>📅 HR Schedule Requirement Today:</span>
+                  <strong className="text-white bg-indigo-500/20 px-2.5 py-0.5 rounded border border-indigo-500/40">
+                    {scheduledLocation === WorkLocation.OFFICE ? '🏢 Office Day' : '🏠 Home Day'}
+                  </strong>
+                </span>
+                <Link to="/dashboard/schedule" className="text-indigo-400 hover:underline font-bold">
+                  View Full Schedule →
+                </Link>
+              </div>
+            )}
+
             {/* Location Selector */}
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">

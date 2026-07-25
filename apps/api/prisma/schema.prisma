@@ -91,6 +91,9 @@ model User {
   sentMessages    Message[]
   payrollRecords  PayrollRecord[]
   auditLogs       AuditLog[]      @relation("AuditLogs")
+  officeSchedules OfficeSchedule[] @relation("UserOfficeSchedules")
+  createdMeetings Meeting[]        @relation("CreatedMeetings")
+  meetingAttendees MeetingAttendee[] @relation("UserMeetingAttendees")
 }
 
 model Attendance {
@@ -208,4 +211,46 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   admin       User     @relation("AuditLogs", fields: [adminId], references: [id])
+}
+
+model OfficeSchedule {
+  id           String       @id @default(uuid())
+  userId       String
+  date         String       // YYYY-MM-DD format
+  workLocation WorkLocation // OFFICE or HOME
+  notes        String?
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  user         User         @relation("UserOfficeSchedules", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model Meeting {
+  id             String            @id @default(uuid())
+  title          String
+  description    String?
+  startTime      DateTime
+  endTime        DateTime
+  locationOrLink String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  createdBy      User              @relation("CreatedMeetings", fields: [createdById], references: [id], onDelete: Cascade)
+  attendees      MeetingAttendee[]
+}
+
+model MeetingAttendee {
+  id        String   @id @default(uuid())
+  meetingId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserMeetingAttendees", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
 }

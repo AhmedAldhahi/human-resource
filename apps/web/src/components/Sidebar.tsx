@@ -127,6 +127,7 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
     { label: 'Messages', to: '/dashboard/chat', icon: icons.chat, badge: unreadTotal },
     { label: 'My Profile ($)', to: '/dashboard/profile', icon: icons.profile },
     { label: 'Attendance', to: '/dashboard/attendance', icon: icons.clock },
+    { label: 'Schedule & Meetings', to: '/dashboard/schedule', icon: icons.calendar },
     { label: 'Absence & Leaves', to: '/dashboard/absence', icon: icons.calendar },
   ];
 
