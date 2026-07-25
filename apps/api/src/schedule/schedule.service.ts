@@ -247,11 +247,18 @@ export class ScheduleService {
   async getMySchedule(userId: string): Promise<MyScheduleSummaryDto> {
     const todayStr = this.getTodayStr();
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { employeeType: true },
+    });
+    const isFixedIncome = user?.employeeType === 'FIXED';
+    const defaultLocation = isFixedIncome ? WorkLocation.OFFICE : WorkLocation.HOME;
+
     // Get today's scheduled location
     const todaySchedule = await this.prisma.officeSchedule.findUnique({
       where: { userId_date: { userId, date: todayStr } },
     });
-    const todayScheduledLocation = (todaySchedule?.workLocation as WorkLocation) || WorkLocation.HOME;
+    const todayScheduledLocation = (todaySchedule?.workLocation as WorkLocation) || defaultLocation;
 
     // Get current week start (Sunday) and end (Saturday)
     const todayDate = new Date();
@@ -277,26 +284,34 @@ export class ScheduleService {
 
     const officeDaysThisWeek: string[] = [];
     const homeDaysThisWeek: string[] = [];
-    const weeklyRoster: OfficeScheduleDto[] = weeklyRosterRecords.map((r) => {
-      if (r.workLocation === WorkLocation.OFFICE) {
-        officeDaysThisWeek.push(r.date);
+
+    // Generate array for all 7 days of current week
+    const weeklyRoster: OfficeScheduleDto[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+
+      const existingRecord = weeklyRosterRecords.find((r) => r.date === dateStr);
+      const loc = existingRecord ? (existingRecord.workLocation as WorkLocation) : defaultLocation;
+
+      if (loc === WorkLocation.OFFICE) {
+        officeDaysThisWeek.push(dateStr);
       } else {
-        homeDaysThisWeek.push(r.date);
+        homeDaysThisWeek.push(dateStr);
       }
-      return {
-        id: r.id,
-        userId: r.userId,
-        userName: r.user?.name,
-        userEmail: r.user?.email,
-        userPhotoUrl: r.user?.photoUrl,
-        date: r.date,
-        workLocation: r.workLocation as WorkLocation,
-        notes: r.notes,
-        createdById: r.createdById,
-        createdAt: r.createdAt.toISOString(),
-        updatedAt: r.updatedAt.toISOString(),
-      };
-    });
+
+      weeklyRoster.push({
+        id: existingRecord?.id || `default-${dateStr}`,
+        userId,
+        date: dateStr,
+        workLocation: loc,
+        notes: existingRecord?.notes || null,
+        createdById: existingRecord?.createdById || null,
+        createdAt: existingRecord?.createdAt ? existingRecord.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: existingRecord?.updatedAt ? existingRecord.updatedAt.toISOString() : new Date().toISOString(),
+      });
+    }
 
     // Get upcoming meetings for user
     const upcomingMeetings = await this.getMeetings(userId, Role.EMPLOYEE);
