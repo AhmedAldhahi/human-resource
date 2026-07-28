@@ -161,6 +161,82 @@ const SECTIONS: ManualSection[] = [
     ],
     routeLink: { path: '/dashboard/absence', label: 'Open Absence & Leaves', labelAr: 'فتح صفحة الإجازات' },
   },
+  {
+    id: 'salary-advances',
+    icon: '💳',
+    title: 'Salary Advances & Loans',
+    titleAr: 'سُلف الراتب والقروض المباشرة',
+    category: 'Financial & Payroll',
+    categoryAr: 'المالية ومسير الرواتب',
+    description:
+      'Setup and manage employee salary advances (loans). Monthly repayment installments are automatically deducted during payroll processing until full balance repayment.',
+    descriptionAr:
+      'إعادة وتنسيق سُلف الموظفين والقروض المباشرة. يتم خصم الأقساط الشهرية تلقائياً أثناء معالجة مسير الرواتب حتى اكتمال سداد المبلغ كاملاً.',
+    steps: [
+      {
+        title: 'Step 1: Setup Advance (HR/Admin)',
+        titleAr: 'الخطوة 1: إصدار السُلفة (HR/Admin)',
+        detail:
+          'Go to Payroll Processing, click "💳 Salary Advances", select employee, enter total loan amount (e.g., 200 JOD), monthly installment (e.g., 50 JOD/mo), and start month.',
+        detailAr:
+          'افتح صفحة مسير الرواتب، اضغط "سُلف الراتب"، اختر الموظف، أدخل إجمالي السُلفة (مثلاً 200 دينار)، القسط الشهري (50 دينار)، وشهر البدء.',
+      },
+      {
+        title: 'Step 2: Automated Payroll Deduction',
+        titleAr: 'الخطوة 2: الخصم الشهري التلقائي',
+        detail:
+          'During monthly payroll processing, the active monthly installment is automatically populated as a deduction. Once fully paid, deductions automatically stop.',
+        detailAr:
+          'عند معالجة مسير الرواتب شهرياً، يتم إدراج القسط تلقائياً ضمن الخصومات، ويتوقف الخصم تلقائياً بمجرد اكتمال سداد السُلفة.',
+      },
+      {
+        title: 'Step 3: Employee Loan Progress Tracking',
+        titleAr: 'الخطوة 3: متابعة الموظف لسُلفته',
+        detail:
+          'Employees can view their active loan progress bar, paid amount, and remaining balance directly on their Profile page.',
+        detailAr:
+          'يمكن للموظف متابعة شريط تقدم سداد سُلفته، المبلغ المسدد، والمتبقي مباشرة من صفحته الشخصية.',
+      },
+    ],
+    tips: [
+      { en: 'HR can review completed or cancelled advances anytime using status filter tabs.', ar: 'يمكن لقسم HR مراجعة السُلف المكتملة أو الملغاة في أي وقت من تبويبات تصفية الحالة.' },
+    ],
+    routeLink: { path: '/dashboard/payroll', label: 'Open Payroll & Advances', labelAr: 'فتح مسير الرواتب والسُلف' },
+  },
+  {
+    id: 'overtime-limits',
+    icon: '🚨',
+    title: 'Daily Hours Limits & 15H Auto Clock-Out',
+    titleAr: 'ساعات العمل اليومية والإغلاق التلقائي (15 ساعة)',
+    category: 'Daily Operations',
+    categoryAr: 'العمليات اليومية',
+    description:
+      'Configurable daily work hour limits per employee (default 12 hours) and automatic safety clock-out after 15 continuous hours to prevent runaway open shifts.',
+    descriptionAr:
+      'تحديد الحد الأقصى لساعات العمل اليومية لكل موظف (الافتراضي 12 ساعة) والإغلاق التلقائي الأمني بعد 15 ساعة متواصلة لمنع الدوام المنسي.',
+    steps: [
+      {
+        title: 'Per-Employee Daily Work Hours Limit',
+        titleAr: 'حد ساعات العمل اليومي لكل موظف',
+        detail:
+          'HR/Admin can set a custom daily work hours limit (e.g. 8, 10, or 12 hours) in the employee profile. Crossing this limit requires entering an authorizing manager name.',
+        detailAr:
+          'يمكن لـ HR تحديد حد يومي مخصص (مثلاً 8 أو 10 أو 12 ساعة) في ملف الموظف. وتجاوز هذا الحد يتطلب إدخال اسم المدير المرخّص للعمل الإضافي.',
+      },
+      {
+        title: '15-Hour Safety Auto Clock-Out',
+        titleAr: 'الإغلاق التلقائي الأمني عند 15 ساعة',
+        detail:
+          'If an employee forgets to clock out, the system automatically closes the shift at 15 hours and flags it for HR review in the "15+ Hours Auto-Closed" tab.',
+        detailAr:
+          'إذا نسي الموظف تسجيل الخروج، يغلق النظام الدوام تلقائياً عند 15 ساعة ويحيله لمراجعة HR في تبويب "تلقائي 15+ ساعة".',
+      },
+    ],
+    tips: [
+      { en: 'Auto-closed 15h shifts require HR approval before hours count towards payroll.', ar: 'الورديات المغلقة تلقائياً بعد 15 ساعة تتطلب موافقة HR قبل احتساب ساعاتها في الراتب.' },
+    ],
+    routeLink: { path: '/dashboard/attendance', label: 'Open Attendance Page', labelAr: 'فتح صفحة الدوام' },
+  },
 ];
 
 export default function InstructionsPage() {
