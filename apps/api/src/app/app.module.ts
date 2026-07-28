@@ -16,6 +16,7 @@ import { PayrollModule } from '../payroll/payroll.module';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { AuditModule } from '../audit/audit.module';
 import { ScheduleModule } from '../schedule/schedule.module';
+import { SalaryAdvanceModule } from '../salary-advance/salary-advance.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ScheduleModule } from '../schedule/schedule.module';
     PayrollModule,
     AuditModule,
     ScheduleModule,
+    SalaryAdvanceModule,
   ],
 })
 export class AppModule {}

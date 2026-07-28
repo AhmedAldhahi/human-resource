@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { cardsApi } from '../api/client';
 import { CardType, CARD_POINT_VALUES } from '@hrms/shared';
 import type { CardResponseDto } from '@hrms/shared';
@@ -51,6 +52,7 @@ function cardMeta(type: CardType) {
 
 export default function MyCardsPage() {
   const { user } = useAuth();
+  const { t, isRtl } = useLanguage();
   const [cards, setCards] = useState<CardResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');

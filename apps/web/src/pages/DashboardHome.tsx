@@ -1,6 +1,7 @@
 import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { attendanceApi, presenceApi } from '../api/client';
 import { Link } from 'react-router-dom';
 import { Role, AttendanceStatus } from '@hrms/shared';
@@ -8,6 +9,7 @@ import type { AttendanceResponseDto, OnlineStatusRecordDto, PresenceStatsDto } f
 
 export default function DashboardHome() {
   const { user } = useAuth();
+  const { t, isRtl } = useLanguage();
   const [todayRecord, setTodayRecord] = useState<AttendanceResponseDto | null>(null);
   const [loadingAttendance, setLoadingAttendance] = useState(true);
   const [onlineTeammates, setOnlineTeammates] = useState<OnlineStatusRecordDto[]>([]);
@@ -40,23 +42,16 @@ export default function DashboardHome() {
   const isHrOrAdmin = user.role === Role.HR || user.role === Role.ADMIN;
   const isClockedIn = todayRecord?.status === AttendanceStatus.CLOCKED_IN || (!!todayRecord && !todayRecord.clockOutTime);
 
-  const greeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   return (
     <div className="space-y-8">
       {/* Welcome */}
       <div>
         <h1 className="text-3xl font-bold text-white">
-          {greeting()},{' '}
+          {t('dash_welcome')}{' '}
           <span className="gradient-text">{user.name.split(' ')[0]}</span>
         </h1>
         <p className="text-slate-400 mt-1">
-          Here&rsquo;s your overview for today.
+          {isRtl ? 'إليك نظرة عامة على نشاطك اليوم.' : 'Here’s your overview for today.'}
         </p>
       </div>
 
@@ -65,7 +60,7 @@ export default function DashboardHome() {
         {/* Card Points */}
         <div className="glass-card p-6 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-slate-400">Card Points</p>
+            <p className="text-sm font-medium text-slate-400">{t('dash_card_points')}</p>
             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
               <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -78,16 +73,16 @@ export default function DashboardHome() {
             }`}
           >
             {user.netCardPoints >= 0 ? '+' : ''}
-            {user.netCardPoints}
+            {user.netCardPoints} {t('points')}
           </p>
-          <p className="text-xs text-slate-500 font-medium">Net performance points</p>
+          <p className="text-xs text-slate-500 font-medium">{isRtl ? 'صافي نقاط الأداء' : 'Net performance points'}</p>
         </div>
 
         {/* Attendance Status */}
         <div className="glass-card p-6 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-slate-400">
-              Today&rsquo;s Attendance
+              {isRtl ? 'حالة الدوام اليوم' : 'Today’s Attendance'}
             </p>
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -112,11 +107,11 @@ export default function DashboardHome() {
           ) : (
             <>
               <p className={`text-2xl font-bold ${isClockedIn ? 'text-emerald-400' : 'text-white'}`}>
-                {isClockedIn ? 'Clocked In' : todayRecord ? 'Clocked Out' : 'Not Clocked In'}
+                {isClockedIn ? t('dash_shift_active') : todayRecord ? t('dash_clock_out') : t('dash_shift_offline')}
               </p>
               {todayRecord && (
                 <p className="text-xs text-slate-500 font-medium">
-                  Since{' '}
+                  {isRtl ? 'منذ ' : 'Since '}
                   {new Date(todayRecord.clockInTime).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -130,7 +125,7 @@ export default function DashboardHome() {
         {/* Role Info */}
         <div className="glass-card p-6 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-slate-400">Your Role</p>
+            <p className="text-sm font-medium text-slate-400">{isRtl ? 'الرتبة / الصلاحيات' : 'Your Role'}</p>
             <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
               <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -139,8 +134,8 @@ export default function DashboardHome() {
           </div>
           <p className="text-2xl font-bold text-white">{user.role}</p>
           <p className="text-xs text-slate-500 font-medium">
-            Member since{' '}
-            {new Date(user.createdAt).toLocaleDateString('en-US', {
+            {isRtl ? 'عضو منذ ' : 'Member since '}
+            {new Date(user.createdAt).toLocaleDateString(isRtl ? 'ar-EG' : 'en-US', {
               month: 'short',
               year: 'numeric',
             })}
@@ -157,15 +152,15 @@ export default function DashboardHome() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
-              <h2 className="text-lg font-bold text-white tracking-tight">Live Team Radar</h2>
+              <h2 className="text-lg font-bold text-white tracking-tight">{t('nav_presence')}</h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
               {presenceStats ? (
                 <>
-                  <strong className="text-emerald-400 font-semibold">{presenceStats.onlineCount} online</strong> out of {presenceStats.totalEmployees} teammates right now ({presenceStats.officeCount} office, {presenceStats.remoteCount} remote).
+                  <strong className="text-emerald-400 font-semibold">{presenceStats.onlineCount} {t('online')}</strong> {isRtl ? 'من أصل' : 'out of'} {presenceStats.totalEmployees} {isRtl ? 'زميلاً الان' : 'teammates right now'} ({presenceStats.officeCount} {t('att_office')}, {presenceStats.remoteCount} {t('att_home')}).
                 </>
               ) : (
-                'Check live online status across the whole company.'
+                isRtl ? 'متابعة حالة المتصلين المباشرة عبر كامل الشركة.' : 'Check live online status across the whole company.'
               )}
             </p>
           </div>
@@ -176,7 +171,7 @@ export default function DashboardHome() {
               {onlineTeammates.map((tm) => (
                 <div
                   key={tm.userId}
-                  title={`${tm.name} (${tm.status === 'ONLINE_OFFICE' ? 'Office' : 'Remote'})`}
+                  title={`${tm.name}`}
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-900 overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                 >
                   {tm.photoUrl ? (
@@ -201,8 +196,8 @@ export default function DashboardHome() {
               to="/dashboard/presence"
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-indigo-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/60 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 flex-shrink-0"
             >
-              <span>Explore Live Radar</span>
-              <span>→</span>
+              <span>{isRtl ? 'استعراض الرادار المباشر' : 'Explore Live Radar'}</span>
+              <span>{isRtl ? '←' : '→'}</span>
             </Link>
           </div>
         </div>
@@ -210,7 +205,7 @@ export default function DashboardHome() {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="text-lg font-bold text-white mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-bold text-white mb-4">{isRtl ? 'إجراءات سريعة' : 'Quick Actions'}</h2>
         <div className="flex flex-wrap gap-3">
           {!isClockedIn && (
             <Link
@@ -220,7 +215,7 @@ export default function DashboardHome() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Clock In
+              {t('dash_clock_in')}
             </Link>
           )}
           {isClockedIn && (
@@ -231,7 +226,7 @@ export default function DashboardHome() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              View Attendance
+              {t('nav_attendance')}
             </Link>
           )}
           {isHrOrAdmin && (
@@ -243,7 +238,7 @@ export default function DashboardHome() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Manage Employees
+                {t('nav_employees')}
               </Link>
               <Link
                 to="/dashboard/issue-card"
@@ -252,7 +247,7 @@ export default function DashboardHome() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 013.138 3.138c.157.73.555 1.395 1.106 1.946.898.898.898 2.354 0 3.252a3.42 3.42 0 00-1.106 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946 1.106 3.42 3.42 0 01-3.252 0 3.42 3.42 0 00-1.946-1.106 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-1.106-1.946 3.42 3.42 0 010-3.252 3.42 3.42 0 001.106-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
-                Issue Card
+                {t('nav_issue_card')}
               </Link>
             </>
           )}

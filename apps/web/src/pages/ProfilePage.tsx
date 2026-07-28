@@ -1,18 +1,22 @@
 import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { usersApi, attendanceApi } from '../api/client';
+import { useLanguage } from '../context/LanguageContext';
+import { usersApi, attendanceApi, salaryAdvanceApi } from '../api/client';
 import {
   UserResponseDto,
   AttendanceResponseDto,
   AttendanceStatus,
   EmployeeType,
+  SalaryAdvanceDto,
 } from '@hrms/shared';
 
 export default function ProfilePage() {
   const { user: authUser } = useAuth();
+  const { t, isRtl } = useLanguage();
   const [user, setUser] = useState<UserResponseDto | null>(null);
   const [attendance, setAttendance] = useState<AttendanceResponseDto[]>([]);
+  const [myAdvances, setMyAdvances] = useState<SalaryAdvanceDto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
@@ -38,19 +42,22 @@ export default function ProfilePage() {
     setLoading(true);
     setError('');
     try {
-      const [userData, attendanceData] = await Promise.all([
+      const [userData, attendanceData, advancesData] = await Promise.all([
         usersApi.getMe(),
         attendanceApi.getMyAttendance(),
+        salaryAdvanceApi.getAll(),
       ]);
       setUser(userData);
       setAttendance(attendanceData);
+      setMyAdvances(advancesData);
+      setSimulatedHours(userData.defaultSimulatedHours ?? 208);
       setContactForm({
         phone: userData.phone || '',
         department: userData.department || '',
         bio: userData.bio || '',
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load profile data.');
+      setError(err?.response?.data?.message || (isRtl ? 'فشل تحميل بيانات الملف الشخصي.' : 'Failed to load profile data.'));
     } finally {
       setLoading(false);
     }
@@ -74,9 +81,9 @@ export default function ProfilePage() {
       });
       setUser(updated);
       setIsEditingContact(false);
-      setSuccessMsg('Your contact and profile information has been updated cleanly!');
+      setSuccessMsg(isRtl ? 'تم تحديث معلومات التواصل والملف الشخصي بنجاح!' : 'Your contact and profile information has been updated cleanly!');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to update contact info.');
+      setError(err?.response?.data?.message || (isRtl ? 'فشل تحديث بيانات التواصل.' : 'Failed to update contact info.'));
     } finally {
       setSaveLoading(false);
     }
@@ -88,11 +95,11 @@ export default function ProfilePage() {
     setError('');
     try {
       await usersApi.uploadPhoto(user.id, photoFile);
-      setSuccessMsg('Your profile photo has been uploaded successfully!');
+      setSuccessMsg(isRtl ? 'تم رفع الصورة الشخصية بنجاح!' : 'Your profile photo has been uploaded successfully!');
       setPhotoFile(undefined);
       await fetchProfileData();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to upload profile photo.');
+      setError(err?.response?.data?.message || (isRtl ? 'فشل رفع الصورة الشخصية.' : 'Failed to upload profile photo.'));
     } finally {
       setUploadingPhoto(false);
     }
@@ -102,7 +109,7 @@ export default function ProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
-        <p className="text-slate-400 font-medium">Loading profile & compensation data...</p>
+        <p className="text-slate-400 font-medium">{t('loading')}</p>
       </div>
     );
   }
@@ -110,7 +117,7 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="glass-card p-12 text-center border border-red-500/20">
-        <p className="text-red-400">Failed to load user profile.</p>
+        <p className="text-red-400">{isRtl ? 'فشل تحميل الملف الشخصي' : 'Failed to load user profile.'}</p>
       </div>
     );
   }
@@ -159,9 +166,9 @@ export default function ProfilePage() {
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">My Profile & Compensation</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t('prof_title')}</h1>
           <p className="text-slate-400 text-sm mt-1">
-            View your official compensation model, photo avatar, earned salary breakdown, and personal details
+            {t('prof_subtitle')}
           </p>
         </div>
         {!isEditingContact && (
@@ -172,7 +179,7 @@ export default function ProfilePage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            Edit Contact Details
+            {isRtl ? 'تعديل بيانات التواصل' : 'Edit Contact Details'}
           </button>
         )}
       </div>
@@ -217,7 +224,7 @@ export default function ProfilePage() {
                 )}
               </div>
               <h2 className="text-2xl font-extrabold text-white">{user.name}</h2>
-              <p className="text-sm font-medium text-slate-400 mt-0.5">{user.email}</p>
+              <p className="text-sm font-medium text-slate-400 mt-0.5" dir="ltr">{user.email}</p>
               
               <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5">
                 <span className="badge bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-xs font-extrabold">
@@ -233,14 +240,14 @@ export default function ProfilePage() {
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : 'bg-rose-500/25 text-rose-400 border border-rose-500/40 shadow-sm'
                 }`}>
-                  {isFixed ? '👔 Fixed Income' : '⏱️ Per-Hour'}
+                  {isFixed ? (isRtl ? '👔 راتب ثابت' : '👔 Fixed Income') : (isRtl ? '⏱️ بالساعة' : '⏱️ Per-Hour')}
                 </span>
               </div>
 
               {/* Photo Upload Box */}
               <div className="mt-5 pt-4 border-t border-white/10 w-full text-left space-y-2">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Change Profile Photo
+                  {t('prof_photo_upload')}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -256,7 +263,7 @@ export default function ProfilePage() {
                       disabled={uploadingPhoto}
                       className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 shrink-0 shadow-md"
                     >
-                      {uploadingPhoto ? '...' : 'Upload'}
+                      {uploadingPhoto ? '...' : (isRtl ? 'رفع' : 'Upload')}
                     </button>
                   )}
                 </div>
@@ -266,38 +273,43 @@ export default function ProfilePage() {
             {/* Contact Information & Bio */}
             {isEditingContact ? (
               <form onSubmit={handleSaveContact} className="pt-6 space-y-4 animate-fadeIn">
-                <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Editing Contact Details</h3>
+                <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
+                  {isRtl ? 'تعديل بيانات التواصل' : 'Editing Contact Details'}
+                </h3>
                 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Department / Team</label>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">{t('prof_department')}</label>
                   <input
                     type="text"
                     value={contactForm.department}
                     onChange={(e) => setContactForm({ ...contactForm, department: e.target.value })}
-                    placeholder="e.g. Engineering, Design, Sales"
+                    placeholder={isRtl ? 'مثال: البرمجة، التصميم، المبيعات' : 'e.g. Engineering, Design, Sales'}
                     className="input-field py-2 text-sm bg-slate-900 border-white/10"
+                    dir="auto"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Phone Number</label>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">{t('prof_phone')}</label>
                   <input
                     type="text"
                     value={contactForm.phone}
                     onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
-                    placeholder="e.g. +1 (555) 123-4567"
+                    placeholder="e.g. +962 7 9999 9999"
                     className="input-field py-2 text-sm bg-slate-900 border-white/10"
+                    dir="ltr"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Personal Bio / Notes</label>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">{t('prof_bio')}</label>
                   <textarea
                     rows={3}
                     value={contactForm.bio}
                     onChange={(e) => setContactForm({ ...contactForm, bio: e.target.value })}
-                    placeholder="A brief bio about your role, skills, or working hours..."
+                    placeholder={isRtl ? 'اكتب نبذة سريعة عن مهامك ومهاراتك...' : 'A brief bio about your role, skills, or working hours...'}
                     className="input-field py-2 text-sm bg-slate-900 border-white/10 resize-none"
+                    dir="auto"
                   />
                 </div>
 
@@ -309,45 +321,91 @@ export default function ProfilePage() {
                   >
                     {saveLoading ? (
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : 'Save Changes'}
+                    ) : t('save')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditingContact(false)}
                     className="py-2.5 px-4 rounded-xl font-bold text-xs bg-white/10 hover:bg-white/20 text-slate-300 transition-all"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                 </div>
               </form>
             ) : (
               <div className="pt-6 space-y-4">
                 <div>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Department</p>
-                  <p className="text-sm font-semibold text-white mt-0.5">{user.department || <span className="text-slate-500 italic">Not assigned yet</span>}</p>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('prof_department')}</p>
+                  <p className="text-sm font-semibold text-white mt-0.5">{user.department || <span className="text-slate-500 italic">{isRtl ? 'غير محدد بعد' : 'Not assigned yet'}</span>}</p>
                 </div>
 
                 <div>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Contact Phone</p>
-                  <p className="text-sm font-semibold text-white mt-0.5">{user.phone || <span className="text-slate-500 italic">No phone provided</span>}</p>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('prof_phone')}</p>
+                  <p className="text-sm font-semibold text-white mt-0.5" dir="ltr">{user.phone || <span className="text-slate-500 italic">{isRtl ? 'لم يتم إدخال رقم هاتف' : 'No phone provided'}</span>}</p>
                 </div>
 
                 <div>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Joined Date</p>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{isRtl ? 'تاريخ الانضمام' : 'Joined Date'}</p>
                   <p className="text-sm font-semibold text-white mt-0.5">
-                    {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {new Date(user.createdAt).toLocaleDateString(isRtl ? 'ar-JO' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Personal Bio</p>
-                  <p className="text-xs leading-relaxed text-slate-300 mt-1 bg-slate-900/50 p-3 rounded-xl border border-white/5">
-                    {user.bio || <span className="text-slate-500 italic">No bio written yet. Click Edit Contact Details above to add one!</span>}
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('prof_bio')}</p>
+                  <p className="text-xs leading-relaxed text-slate-300 mt-1 bg-slate-900/50 p-3 rounded-xl border border-white/5" dir="auto">
+                    {user.bio || <span className="text-slate-500 italic">{isRtl ? 'لا توجد نبذة شخصية بعد. اضغط تعديل بيانات التواصل لإضافة نبذة!' : 'No bio written yet. Click Edit Contact Details above to add one!'}</span>}
                   </p>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Active Salary Advances Card */}
+          {myAdvances.length > 0 && (
+            <div className="glass-card p-6 border border-indigo-500/30 shadow-2xl bg-gradient-to-b from-indigo-500/10 via-slate-900/60 to-transparent space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                <span className="text-xl">💳</span>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">
+                    {isRtl ? 'سُلف الراتب والقروض المباشرة' : 'Salary Advances & Loans'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {isRtl ? 'متابعة الأقساط المتبقية والسداد الشهري' : 'Track your loan progress and monthly deductions'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {myAdvances.map((adv) => {
+                  const percent = Math.min(100, Math.round((adv.paidAmount / adv.totalAmount) * 100));
+                  return (
+                    <div key={adv.id} className="p-3.5 rounded-xl bg-slate-950/80 border border-white/10 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-white" dir="ltr">{adv.totalAmount.toFixed(2)} JOD</span>
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30" dir="ltr">
+                          -{adv.monthlyInstallment.toFixed(2)} JOD / mo
+                        </span>
+                      </div>
+
+                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex justify-between text-[11px] text-slate-400 font-semibold">
+                        <span>{isRtl ? `المسدد: ${adv.paidAmount.toFixed(2)} دينار` : `Paid: ${adv.paidAmount.toFixed(2)} JOD`}</span>
+                        <span className="text-emerald-400 font-bold" dir="ltr">{percent}%</span>
+                        <span>{isRtl ? `المتبقي: ${adv.remainingBalance.toFixed(2)} دينار` : `Rem: ${adv.remainingBalance.toFixed(2)} JOD`}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Hourly Wages & Live Salary Breakdown */}
@@ -359,32 +417,32 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
               <div>
                 <span className="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 inline-block">
-                  {isFixed ? 'Official Fixed Monthly Pay' : 'Official Per-Hour Pay Rate'}
+                  {isFixed ? (isRtl ? 'الراتب الشهري الثابت المعتمد' : 'Official Fixed Monthly Pay') : (isRtl ? 'أجر الساعة المعتمد' : 'Official Per-Hour Pay Rate')}
                 </span>
-                <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1">
+                <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mt-1" dir="ltr">
                   {isFixed ? (
                     <>
-                      {monthlySalary.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">JOD / month</span>
+                      {monthlySalary.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">{isRtl ? 'دينار / شهر' : 'JOD / month'}</span>
                     </>
                   ) : (
                     <>
-                      {hourlyWage.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">JOD / hour</span>
+                      {hourlyWage.toFixed(2)} <span className="text-lg font-bold text-emerald-400 uppercase">{isRtl ? 'دينار / ساعة' : 'JOD / hour'}</span>
                     </>
                   )}
                 </h2>
                 <p className="text-slate-300 text-xs sm:text-sm mt-2 max-w-lg leading-relaxed">
                   {isFixed
-                    ? 'You are enrolled in the Fixed Income salaried model. Your salary is guaranteed each month subject to standard absence and attendance policies.'
-                    : 'Your hourly compensation rate is certified by HR. All clocked attendance hours automatically multiply by this rate.'}
+                    ? (isRtl ? 'أنت مسجل ضمن نظام الراتب الشهري الثابت. راتبك مضمون شهرياً وفق سياسات الحضور والدوام.' : 'You are enrolled in the Fixed Income salaried model. Your salary is guaranteed each month subject to standard absence and attendance policies.')
+                    : (isRtl ? 'أجر الساعة الخاص بك معتمد من قسم الموارد البشرية. يتم احتساب ساعات الدوام تلقائياً.' : 'Your hourly compensation rate is certified by HR. All clocked attendance hours automatically multiply by this rate.')}
                 </p>
               </div>
 
               <div className="glass-card p-4 rounded-2xl border border-white/10 bg-slate-950/60 text-center min-w-[160px] shadow-lg">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Net Card Points</p>
-                <p className={`text-3xl font-black mt-1 ${user.netCardPoints > 0 ? 'text-emerald-400' : user.netCardPoints < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{t('dash_card_points')}</p>
+                <p className={`text-3xl font-black mt-1 ${user.netCardPoints > 0 ? 'text-emerald-400' : user.netCardPoints < 0 ? 'text-red-400' : 'text-slate-300'}`} dir="ltr">
                   {user.netCardPoints > 0 ? `+${user.netCardPoints}` : user.netCardPoints}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-1">Impact: {pointsImpact >= 0 ? `+${pointsImpact.toFixed(2)} JOD` : `${pointsImpact.toFixed(2)} JOD`}</p>
+                <p className="text-[10px] text-slate-400 mt-1" dir="ltr">{isRtl ? 'التأثير:' : 'Impact:'} {pointsImpact >= 0 ? `+${pointsImpact.toFixed(2)} JOD` : `${pointsImpact.toFixed(2)} JOD`}</p>
               </div>
             </div>
           </div>
@@ -393,54 +451,56 @@ export default function ProfilePage() {
           <div className="glass-card p-6 sm:p-8 border border-white/10 shadow-2xl bg-white/[0.02]">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2.5">
               <span className="w-3 h-3 rounded-full bg-indigo-500" />
-              Real-Time Earned Compensation Breakdown
+              {t('prof_compensation')}
             </h3>
 
             <div className="flex flex-wrap gap-4 mb-8">
               <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
-                <p className="text-xs font-bold text-slate-400 uppercase">Total Worked Hours</p>
-                <p className="text-2xl font-extrabold text-white">
+                <p className="text-xs font-bold text-slate-400 uppercase">{isRtl ? 'إجمالي ساعات العمل' : 'Total Worked Hours'}</p>
+                <p className="text-2xl font-extrabold text-white" dir="ltr">
                   {totalHoursWorked}h <span className="text-base font-normal text-slate-400">{remainingMinutes}m</span>
                 </p>
-                <p className="text-[11px] text-slate-500">Across {activeShifts} completed shifts</p>
+                <p className="text-[11px] text-slate-500">
+                  {isRtl ? `عبر ${activeShifts} ورديات مكتملة` : `Across ${activeShifts} completed shifts`}
+                </p>
               </div>
 
               <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
-                <p className="text-xs font-bold text-slate-400 uppercase">Base Earned Pay</p>
-                <p className="text-2xl font-extrabold text-indigo-400">
+                <p className="text-xs font-bold text-slate-400 uppercase">{isRtl ? 'الراتب المستحق الأساسي' : 'Base Earned Pay'}</p>
+                <p className="text-2xl font-extrabold text-indigo-400" dir="ltr">
                   {baseEarnedPay.toFixed(2)} JOD
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500" dir="ltr">
                   {isFixed ? `(Pro-rated for ${exactHoursDecimal.toFixed(1)}h)` : `(${exactHoursDecimal.toFixed(1)}h × ${hourlyWage.toFixed(2)} JOD)`}
                 </p>
               </div>
 
               {transportationAllowance > 0 && (
                 <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase">Transportation</p>
-                  <p className="text-2xl font-extrabold text-teal-400">
+                  <p className="text-xs font-bold text-slate-400 uppercase">{t('dash_allowance')}</p>
+                  <p className="text-2xl font-extrabold text-teal-400" dir="ltr">
                     +{transportationAllowance.toFixed(2)} JOD
                   </p>
-                  <p className="text-[11px] text-slate-500">Fixed monthly allowance</p>
+                  <p className="text-[11px] text-slate-500">{isRtl ? 'بدل مواصلات شهري ثابت' : 'Fixed monthly allowance'}</p>
                 </div>
               )}
 
               {recurringBonus > 0 && (
                 <div className="flex-1 min-w-[200px] p-5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase">Recurring Bonus</p>
-                  <p className="text-2xl font-extrabold text-pink-400">
+                  <p className="text-xs font-bold text-slate-400 uppercase">{t('dash_bonus')}</p>
+                  <p className="text-2xl font-extrabold text-pink-400" dir="ltr">
                     +{recurringBonus.toFixed(2)} JOD
                   </p>
-                  <p className="text-[11px] text-slate-500">Permanent monthly addition</p>
+                  <p className="text-[11px] text-slate-500">{isRtl ? 'إضافة شهرية دائمية' : 'Permanent monthly addition'}</p>
                 </div>
               )}
 
               <div className="flex-[2] min-w-[250px] p-5 rounded-2xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/30 space-y-1 shadow-inner">
-                <p className="text-xs font-bold text-indigo-300 uppercase">Net Estimated Pay</p>
-                <p className="text-3xl font-black text-emerald-400">
+                <p className="text-xs font-bold text-indigo-300 uppercase">{isRtl ? 'صافي المستحقات التقديرية' : 'Net Estimated Pay'}</p>
+                <p className="text-3xl font-black text-emerald-400" dir="ltr">
                   {totalEarnedCompensation.toFixed(2)} JOD
                 </p>
-                <p className="text-[11px] text-indigo-300/80">Includes card point adjustments</p>
+                <p className="text-[11px] text-indigo-300/80">{isRtl ? 'يشمل تعديلات نقاط البطاقات' : 'Includes card point adjustments'}</p>
               </div>
             </div>
 
@@ -448,11 +508,13 @@ export default function ProfilePage() {
             <div className="pt-6 border-t border-white/10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
-                  <h4 className="text-base font-bold text-white">Monthly Pay Simulator</h4>
-                  <p className="text-xs text-slate-400">Estimate your gross earnings by adjusting projected monthly hours</p>
+                  <h4 className="text-base font-bold text-white">{isRtl ? 'حاسبة المحاكاة الشهرية' : 'Monthly Pay Simulator'}</h4>
+                  <p className="text-xs text-slate-400">
+                    {isRtl ? 'توقّع إجمالي مستحقاتك بتغيير عدد الساعات المتوقعة' : 'Estimate your gross earnings by adjusting projected monthly hours'}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-white/10">
-                  <span className="text-xs font-bold text-slate-400">Hours:</span>
+                  <span className="text-xs font-bold text-slate-400">{isRtl ? 'الساعات:' : 'Hours:'}</span>
                   <input
                     type="number"
                     min="0"
@@ -469,24 +531,28 @@ export default function ProfilePage() {
                     }}
                     onBlur={() => {
                       if (simulatedHours === '' || Number(simulatedHours) < 0) {
-                        setSimulatedHours(208);
+                        setSimulatedHours(user?.defaultSimulatedHours ?? 208);
                       }
                     }}
                     className="w-16 bg-transparent text-white font-black text-base text-right focus:outline-none"
                   />
-                  <span className="text-xs text-slate-500">hrs/mo</span>
+                  <span className="text-xs text-slate-500">{isRtl ? 'ساعة/شهر' : 'hrs/mo'}</span>
                 </div>
               </div>
 
               {/* Simulation Result Box */}
               <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-purple-950/40 to-slate-900 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Simulated Monthly Earnings</p>
+                  <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">{isRtl ? 'المستحقات الشهرية المتوقعة' : 'Simulated Monthly Earnings'}</p>
                   <p className="text-sm text-slate-300">
-                    If you work <strong className="text-white font-bold">{simulatedHoursNum} hours</strong> ({isFixed ? `Fixed ${monthlySalary} JOD/mo` : `Hourly ${hourlyWage.toFixed(2)} JOD/hr`})
+                    {isRtl ? (
+                      <>عند عمل <strong className="text-white font-bold">{simulatedHoursNum} ساعة</strong> ({isFixed ? `راتب ثابت ${monthlySalary} دينار/شهر` : `أجر الساعة ${hourlyWage.toFixed(2)} دينار/ساعة`})</>
+                    ) : (
+                      <>If you work <strong className="text-white font-bold">{simulatedHoursNum} hours</strong> ({isFixed ? `Fixed ${monthlySalary} JOD/mo` : `Hourly ${hourlyWage.toFixed(2)} JOD/hr`})</>
+                    )}
                   </p>
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-left sm:text-right" dir="ltr">
                   <p className="text-3xl font-black text-white tracking-tight">
                     {simulatedEarnings.toFixed(2)} <span className="text-xs font-semibold text-slate-400">JOD</span>
                   </p>

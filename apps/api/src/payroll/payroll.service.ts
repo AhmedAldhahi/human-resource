@@ -24,20 +24,34 @@ export class PayrollService {
     const startOfMonth = new Date(parsedYear, parsedMonth - 1, 1);
     const endOfMonth = new Date(parsedYear, parsedMonth, 0, 23, 59, 59, 999);
 
-    const users = await this.prisma.user.findMany({
-      where: { isActive: true },
-      include: {
-        attendances: {
-          where: { clockInTime: { gte: startOfMonth, lte: endOfMonth } },
+    const [users, activeAdvances] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { isActive: true },
+        include: {
+          attendances: {
+            where: { clockInTime: { gte: startOfMonth, lte: endOfMonth } },
+          },
+          receivedCards: {
+            where: { issuedAt: { gte: startOfMonth, lte: endOfMonth } },
+          },
+          payrollRecords: {
+            where: { month },
+          },
         },
-        receivedCards: {
-          where: { issuedAt: { gte: startOfMonth, lte: endOfMonth } },
+      }),
+      this.prisma.salaryAdvance.findMany({
+        where: {
+          status: 'ACTIVE',
+          startMonth: { lte: month },
+          remainingBalance: { gt: 0 },
         },
-        payrollRecords: {
-          where: { month },
-        },
-      },
-    });
+      }),
+    ]);
+
+    const advanceMap = new Map<string, any>();
+    for (const adv of activeAdvances) {
+      advanceMap.set(adv.userId, adv);
+    }
 
     return users.map((user) => {
       // 1. Calculate Tracked Hours
@@ -79,6 +93,13 @@ export class PayrollService {
 
       const existingRecord = user.payrollRecords?.[0];
 
+      // 5. Calculate Active Salary Advance Repayment Installment
+      const activeAdv = advanceMap.get(user.id);
+      let activeAdvanceDeduction = 0;
+      if (activeAdv) {
+        activeAdvanceDeduction = Math.min(activeAdv.remainingBalance, activeAdv.monthlyInstallment);
+      }
+
       return {
         userId: user.id,
         name: user.name,
@@ -92,6 +113,9 @@ export class PayrollService {
         transportationDeductions,
         wfhDays,
         cardPointsReference,
+        activeAdvanceDeduction,
+        activeAdvanceId: activeAdv?.id,
+        activeAdvanceNote: activeAdv ? `Salary advance deduction: ${activeAdvanceDeduction} JOD (Bal: ${activeAdv.remainingBalance} JOD)` : undefined,
         savedApprovedHours: existingRecord?.approvedHours,
         savedBonusAmount: existingRecord?.bonusAmount,
         savedBonusNotes: existingRecord?.bonusNotes ?? undefined,
@@ -145,6 +169,45 @@ export class PayrollService {
           status: dto.status ?? PayrollStatus.FINALIZED,
         },
       });
+    }
+
+    // Record loan repayment if payroll is finalized
+    if (dto.status === PayrollStatus.FINALIZED || !dto.status) {
+      const activeAdvance = await this.prisma.salaryAdvance.findFirst({
+        where: { userId: dto.userId, status: 'ACTIVE', startMonth: { lte: dto.month } },
+      });
+
+      if (activeAdvance) {
+        const installment = Math.min(activeAdvance.remainingBalance, activeAdvance.monthlyInstallment);
+        if (installment > 0) {
+          const existingRepayment = await this.prisma.salaryAdvanceRepayment.findFirst({
+            where: { advanceId: activeAdvance.id, month: dto.month },
+          });
+
+          if (!existingRepayment) {
+            await this.prisma.salaryAdvanceRepayment.create({
+              data: {
+                advanceId: activeAdvance.id,
+                month: dto.month,
+                amount: installment,
+              },
+            });
+
+            const newPaid = activeAdvance.paidAmount + installment;
+            const newRemaining = Math.max(0, activeAdvance.totalAmount - newPaid);
+            const isCompleted = newRemaining <= 0;
+
+            await this.prisma.salaryAdvance.update({
+              where: { id: activeAdvance.id },
+              data: {
+                paidAmount: newPaid,
+                remainingBalance: newRemaining,
+                status: isCompleted ? 'COMPLETED' : 'ACTIVE',
+              },
+            });
+          }
+        }
+      }
     }
 
     return this.mapToDto(record);

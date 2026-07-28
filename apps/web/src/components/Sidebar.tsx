@@ -3,8 +3,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Role } from '@hrms/shared';
 import ThemeSwitcher from './ThemeSwitcher';
+import LanguageSwitcher from './LanguageSwitcher';
 
 /* ── Inline SVG Icons ──────────────────────────────────────────────────── */
 const icons = {
@@ -88,6 +90,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
   ),
+  book: (
+    <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  ),
 };
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -117,41 +124,43 @@ interface SidebarProps {
 export default function Sidebar({ onNavItemClick }: SidebarProps) {
   const { user, logout } = useAuth();
   const { unreadTotal } = useChat();
+  const { t } = useLanguage();
 
   if (!user) return null;
 
   /* Build nav items based on role */
   const navItems: NavItem[] = [
-    { label: 'Dashboard', to: '/dashboard', icon: icons.home },
-    { label: 'Live Radar (Online)', to: '/dashboard/presence', icon: icons.radar },
-    { label: 'Messages', to: '/dashboard/chat', icon: icons.chat, badge: unreadTotal },
-    { label: 'My Profile ($)', to: '/dashboard/profile', icon: icons.profile },
-    { label: 'Attendance', to: '/dashboard/attendance', icon: icons.clock },
-    { label: 'Schedule & Meetings', to: '/dashboard/schedule', icon: icons.calendar },
-    { label: 'Absence & Leaves', to: '/dashboard/absence', icon: icons.calendar },
+    { label: t('nav_dashboard'), to: '/dashboard', icon: icons.home },
+    { label: t('nav_instructions'), to: '/dashboard/instructions', icon: icons.book },
+    { label: t('nav_presence'), to: '/dashboard/presence', icon: icons.radar },
+    { label: t('nav_messages'), to: '/dashboard/chat', icon: icons.chat, badge: unreadTotal },
+    { label: t('nav_profile'), to: '/dashboard/profile', icon: icons.profile },
+    { label: t('nav_attendance'), to: '/dashboard/attendance', icon: icons.clock },
+    { label: t('nav_schedule'), to: '/dashboard/schedule', icon: icons.calendar },
+    { label: t('nav_absence'), to: '/dashboard/absence', icon: icons.calendar },
   ];
 
   if (user.role === Role.EMPLOYEE) {
-    navItems.push({ label: 'My Cards', to: '/dashboard/my-cards', icon: icons.star });
+    navItems.push({ label: t('nav_my_cards'), to: '/dashboard/my-cards', icon: icons.star });
   }
 
   if (user.role === Role.HR || user.role === Role.ADMIN) {
     navItems.push(
-      { label: 'Employees', to: '/dashboard/employees', icon: icons.users },
-      { label: 'PC Tracker', to: '/dashboard/pc-tracker', icon: icons.monitor },
-      { label: 'Reports', to: '/dashboard/reports', icon: icons.chart },
-      { label: 'Payroll Processing', to: '/dashboard/payroll', icon: icons.card },
-      { label: 'Issue Card', to: '/dashboard/issue-card', icon: icons.award },
-      { label: 'All Cards', to: '/dashboard/all-cards', icon: icons.list }
+      { label: t('nav_employees'), to: '/dashboard/employees', icon: icons.users },
+      { label: t('nav_tracker'), to: '/dashboard/pc-tracker', icon: icons.monitor },
+      { label: t('nav_reports'), to: '/dashboard/reports', icon: icons.chart },
+      { label: t('nav_payroll'), to: '/dashboard/payroll', icon: icons.card },
+      { label: t('nav_issue_card'), to: '/dashboard/issue-card', icon: icons.award },
+      { label: t('nav_all_cards'), to: '/dashboard/all-cards', icon: icons.list }
     );
   }
 
   if (user.role === Role.ADMIN || user.role === Role.HR) {
-    navItems.push({ label: 'Create User', to: '/dashboard/create-user', icon: icons.userPlus });
+    navItems.push({ label: t('nav_create_user'), to: '/dashboard/create-user', icon: icons.userPlus });
   }
 
   if (user.role === Role.ADMIN) {
-    navItems.push({ label: 'Audit Logs', to: '/dashboard/audit', icon: icons.clipboard });
+    navItems.push({ label: t('nav_audit'), to: '/dashboard/audit', icon: icons.clipboard });
   }
 
   return (
@@ -161,10 +170,10 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
         <div className="px-3 mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight gradient-text">
-              HRMS
+              {t('brand_title')}
             </h1>
             <p className="text-[11px] text-slate-500 mt-1 tracking-widest uppercase">
-              Human Resource System
+              {t('brand_subtitle')}
             </p>
           </div>
         </div>
@@ -228,7 +237,8 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-white/10">
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <LanguageSwitcher dropPosition="up" />
             <ThemeSwitcher dropPosition="up" />
           </div>
 
@@ -237,7 +247,7 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
           >
             {icons.logout}
-            Sign out
+            {t('nav_signout')}
           </button>
         </div>
       </div>

@@ -80,6 +80,8 @@ model User {
   customEmoji     String?
   transportationAllowance Float @default(0)
   recurringBonus          Float @default(0)
+  defaultSimulatedHours   Float @default(208)
+  maxDailyHours           Float @default(12)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -94,6 +96,7 @@ model User {
   officeSchedules OfficeSchedule[] @relation("UserOfficeSchedules")
   createdMeetings Meeting[]        @relation("CreatedMeetings")
   meetingAttendees MeetingAttendee[] @relation("UserMeetingAttendees")
+  salaryAdvances  SalaryAdvance[]
 }
 
 model Attendance {
@@ -275,4 +278,42 @@ model MeetingAttendee {
   user      User     @relation("UserMeetingAttendees", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, userId])
+}
+
+enum AdvanceStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model SalaryAdvance {
+  id                 String                   @id @default(uuid())
+  userId             String
+  totalAmount        Float
+  monthlyInstallment Float
+  paidAmount         Float                    @default(0)
+  remainingBalance   Float
+  startMonth         String                   // YYYY-MM
+  status             AdvanceStatus            @default(ACTIVE)
+  notes              String?
+  createdById        String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repayments         SalaryAdvanceRepayment[]
+
+  @@index([userId, status])
+}
+
+model SalaryAdvanceRepayment {
+  id         String        @id @default(uuid())
+  advanceId  String
+  month      String        // YYYY-MM
+  amount     Float
+  paidAt     DateTime      @default(now())
+
+  advance    SalaryAdvance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  @@index([advanceId, month])
 }

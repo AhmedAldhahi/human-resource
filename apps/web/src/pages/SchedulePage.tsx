@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { scheduleApi, usersApi } from '../api/client';
+import { Role, EmployeeType } from '@hrms/shared';
 import type {
   MyScheduleSummaryDto,
   OfficeScheduleDto,
@@ -7,22 +8,23 @@ import type {
   UserResponseDto,
   WorkLocation,
 } from '@hrms/shared';
-import { Role, EmployeeType } from '@hrms/shared';
-import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const DAYS_OF_WEEK = [
-  { key: 6, label: 'Sat', short: 'Sat' },
-  { key: 0, label: 'Sun', short: 'Sun' },
-  { key: 1, label: 'Mon', short: 'Mon' },
-  { key: 2, label: 'Tue', short: 'Tue' },
-  { key: 3, label: 'Wed', short: 'Wed' },
-  { key: 4, label: 'Thu', short: 'Thu' },
-  { key: 5, label: 'Fri', short: 'Fri' },
+  { key: 6, label: 'Sat', labelAr: 'السبت', short: 'Sat', shortAr: 'السبت' },
+  { key: 0, label: 'Sun', labelAr: 'الأحد', short: 'Sun', shortAr: 'الأحد' },
+  { key: 1, label: 'Mon', labelAr: 'الإثنين', short: 'Mon', shortAr: 'الإثنين' },
+  { key: 2, label: 'Tue', labelAr: 'الثلاثاء', short: 'Tue', shortAr: 'الثلاثاء' },
+  { key: 3, label: 'Wed', labelAr: 'الأربعاء', short: 'Wed', shortAr: 'الأربعاء' },
+  { key: 4, label: 'Thu', labelAr: 'الخميس', short: 'Thu', shortAr: 'الخميس' },
+  { key: 5, label: 'Fri', labelAr: 'الجمعة', short: 'Fri', shortAr: 'الجمعة' },
 ];
 
 export default function SchedulePage() {
   const { user } = useAuth();
+  const { t, isRtl } = useLanguage();
   const isHrOrAdmin = user?.role === Role.HR || user?.role === Role.ADMIN;
 
   const [activeTab, setActiveTab] = useState<'my' | 'roster' | 'meetings'>('my');
@@ -30,7 +32,7 @@ export default function SchedulePage() {
   // Employee My Schedule State
   const [mySchedule, setMySchedule] = useState<MyScheduleSummaryDto | null>(null);
 
-  // HR Office Roster State (PER_HOUR Employees ONLY)
+  // HR Office Roster State (ALL Active Employees)
   const [employees, setEmployees] = useState<UserResponseDto[]>([]);
   const [rosterWeekStart, setRosterWeekStart] = useState<Date>(() => {
     const d = new Date();
@@ -101,7 +103,7 @@ export default function SchedulePage() {
     }
   };
 
-  // Load HR Roster Matrix - ONLY HOURLY / PER_HOUR EMPLOYEES
+  // Load HR Roster Matrix - ALL ACTIVE EMPLOYEES (Fixed & Per-Hour)
   const fetchRoster = async () => {
     try {
       const [usersData, rosterData] = await Promise.all([
@@ -109,19 +111,16 @@ export default function SchedulePage() {
         scheduleApi.getOfficeRoster(weekStartStr, weekEndStr),
       ]);
 
-      // ONLY keep active PER_HOUR employees for HR schedule management!
-      // Fixed income employees come to office by default and don't need scheduling.
-      const hourlyUsers = usersData.filter(
-        (u) => u.isActive && u.employeeType === EmployeeType.PER_HOUR
-      );
-      setEmployees(hourlyUsers);
+      // Keep ALL active employees for office roster management
+      const activeUsers = usersData.filter((u) => u.isActive);
+      setEmployees(activeUsers);
 
       const matrix: Record<string, Record<string, 'OFFICE' | 'HOME'>> = {};
-      hourlyUsers.forEach((emp) => {
+      activeUsers.forEach((emp) => {
         matrix[emp.id] = {};
         currentWeekDates.forEach((d) => {
           const dateKey = formatYmd(d);
-          matrix[emp.id][dateKey] = 'HOME'; // Hourly default to Home
+          matrix[emp.id][dateKey] = 'HOME';
         });
       });
 
@@ -156,7 +155,7 @@ export default function SchedulePage() {
         await Promise.all([fetchRoster(), fetchMeetings()]);
       }
     } catch (err: any) {
-      setError('Failed to load schedule data.');
+      setError(isRtl ? 'فشل تحميل بيانات الجدول الزمني.' : 'Failed to load schedule data.');
     } finally {
       setLoading(false);
     }
@@ -203,7 +202,7 @@ export default function SchedulePage() {
     // Auto-save to database immediately so selections are never lost
     try {
       await scheduleApi.setOfficeRoster({ schedules: itemsToSave });
-      setSuccessMsg(`✅ Saved office assignments for ${dayLabel}!`);
+      setSuccessMsg(isRtl ? `✅ تم حفظ تعيينات المكتب ليوم ${dayLabel}!` : `✅ Saved office assignments for ${dayLabel}!`);
       await fetchMySchedule();
     } catch (err) {
       console.error('Auto-save error:', err);
@@ -224,7 +223,7 @@ export default function SchedulePage() {
       await scheduleApi.setOfficeRoster({
         schedules: [{ userId, date: dateStr, workLocation: 'HOME' as any }],
       });
-      setSuccessMsg('✅ Office assignment removed and saved!');
+      setSuccessMsg(isRtl ? '✅ تم إزالة التعيين للمكتب وحفظ التغيير!' : '✅ Office assignment removed and saved!');
       await fetchMySchedule();
     } catch (err) {
       console.error('Auto-remove error:', err);
@@ -249,21 +248,19 @@ export default function SchedulePage() {
       });
 
       await scheduleApi.setOfficeRoster({ schedules: itemsToSave });
-      setSuccessMsg('✅ Weekly Hourly Office Roster saved and published successfully!');
+      setSuccessMsg(isRtl ? '✅ تم حفظ ونشر جدول دوام المكتب الأسبوعي بنجاح!' : '✅ Weekly Office Roster saved and published successfully!');
       await fetchMySchedule();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to save roster.');
+      setError(err?.response?.data?.message || (isRtl ? 'فشل حفظ جدول الدوام.' : 'Failed to save roster.'));
     } finally {
       setSavingRoster(false);
     }
   };
 
   // 📸 1-Click High-Res Schedule PNG Image Exporter tailored for Slack
-  // Lists ONLY Hourly Employees scheduled to come to Office + Meetings
   const handleExportImage = async () => {
     setExportingImage(true);
     try {
-      // Fetch fresh meetings from API to ensure all scheduled meetings are included
       const latestMeetings = await scheduleApi.getMeetings().catch(() => meetings);
 
       const canvas = document.createElement('canvas');
@@ -278,8 +275,7 @@ export default function SchedulePage() {
         const dateStr = formatYmd(d);
         const officeEmps = employees.filter((emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE');
 
-        // Robust meeting date matching (local date & UTC date string)
-        const dayMeetings = latestMeetings.filter((m) => {
+        const dayMeetings = (latestMeetings || []).filter((m) => {
           if (!m.startTime) return false;
           const mDateObj = new Date(m.startTime);
           const mLocalStr = formatYmd(mDateObj);
@@ -288,7 +284,7 @@ export default function SchedulePage() {
         });
 
         return {
-          dayLabel: DAYS_OF_WEEK[idx].short,
+          dayLabel: isRtl ? DAYS_OF_WEEK[idx].shortAr : DAYS_OF_WEEK[idx].short,
           dateDisplay: `${d.getDate()}/${d.getMonth() + 1}`,
           officeEmps,
           dayMeetings,
@@ -322,11 +318,11 @@ export default function SchedulePage() {
 
       ctx.fillStyle = '#00f2fe';
       ctx.font = 'bold 26px Inter, sans-serif';
-      ctx.fillText('🏢 VOADERA — HOURLY OFFICE SCHEDULE & MEETINGS', startX + 25, 62);
+      ctx.fillText(isRtl ? '🏢 جدول الدوام والاجتماعات الأسبوعي' : '🏢 VOADERA — OFFICE SCHEDULE & MEETINGS', startX + 25, 62);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '14px Inter, sans-serif';
-      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Hourly Staff Office Attendance & Scheduled Meetings`, startX + 25, 88);
+      ctx.fillText(`Week of ${weekStartStr} to ${weekEndStr} | Staff Office Attendance & Scheduled Meetings`, startX + 25, 88);
 
       // Day Column Headers
       let currentY = headerHeight;
@@ -345,12 +341,12 @@ export default function SchedulePage() {
         ctx.fillText(`${d.dayLabel} (${d.dateDisplay})`, colX + colWidth / 2, currentY + 26);
       });
 
-      // Section 1: Hourly Office Attendees List
+      // Section 1: Office Attendees List
       currentY += dayHeaderHeight;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#00ff9d';
       ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillText('🏢 HOURLY OFFICE ATTENDEES', startX + 5, currentY + 18);
+      ctx.fillText(isRtl ? '🏢 الموظفون المتواجدون في المكتب' : '🏢 OFFICE ATTENDEES', startX + 5, currentY + 18);
 
       currentY += 28;
 
@@ -362,7 +358,7 @@ export default function SchedulePage() {
           ctx.fillStyle = '#64748b';
           ctx.font = 'italic 11px Inter, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('No hourly staff scheduled', colX + colWidth / 2, empY + 18);
+          ctx.fillText(isRtl ? 'لا يوجد موظفون' : 'No staff scheduled', colX + colWidth / 2, empY + 18);
         } else {
           d.officeEmps.forEach((emp) => {
             ctx.fillStyle = 'rgba(10, 25, 47, 0.9)';
@@ -387,7 +383,7 @@ export default function SchedulePage() {
       ctx.textAlign = 'left';
       ctx.fillStyle = '#c084fc';
       ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillText('📹 SCHEDULED MEETINGS & TIMES', startX + 5, currentY + 18);
+      ctx.fillText(isRtl ? '📹 الاجتماعات المقررة ومواعيدها' : '📹 SCHEDULED MEETINGS & TIMES', startX + 5, currentY + 18);
 
       currentY += 28;
 
@@ -399,7 +395,7 @@ export default function SchedulePage() {
           ctx.fillStyle = '#64748b';
           ctx.font = 'italic 11px Inter, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('No meetings', colX + colWidth / 2, mY + 18);
+          ctx.fillText(isRtl ? 'لا توجد اجتماعات' : 'No meetings', colX + colWidth / 2, mY + 18);
         } else {
           d.dayMeetings.forEach((m) => {
             const startObj = new Date(m.startTime);
@@ -441,11 +437,11 @@ export default function SchedulePage() {
         link.href = URL.createObjectURL(blob);
         link.click();
         URL.revokeObjectURL(link.href);
-        setSuccessMsg('📸 High-res schedule image generated and downloaded! Ready to paste into Slack/Teams.');
+        setSuccessMsg(isRtl ? '📸 تم إنشاء صورة الجدول بنجاح وتنزيلها!' : '📸 High-res schedule image generated and downloaded!');
       });
     } catch (err) {
       console.error('Export image error:', err);
-      setError('Could not export schedule image.');
+      setError(isRtl ? 'تعذر تصدير صورة الجدول.' : 'Could not export schedule image.');
     } finally {
       setExportingImage(false);
     }
@@ -455,7 +451,7 @@ export default function SchedulePage() {
   const handleMeetingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!meetingTitle.trim() || !meetingDate || !meetingStartTime || !meetingEndTime) {
-      setError('Please fill in title, date, start time, and end time.');
+      setError(isRtl ? 'يرجى تعبئة العنوان والتاريخ ووقت البداية والنهاية.' : 'Please fill in title, date, start time, and end time.');
       return;
     }
 
@@ -476,7 +472,7 @@ export default function SchedulePage() {
           locationOrLink: meetingLocation,
           attendeeIds: selectedAttendeeIds,
         });
-        setSuccessMsg('✅ Meeting updated successfully!');
+        setSuccessMsg(isRtl ? '✅ تم تحديث الاجتماع بنجاح!' : '✅ Meeting updated successfully!');
       } else {
         await scheduleApi.createMeeting({
           title: meetingTitle,
@@ -486,7 +482,7 @@ export default function SchedulePage() {
           locationOrLink: meetingLocation,
           attendeeIds: selectedAttendeeIds,
         });
-        setSuccessMsg('✅ Meeting scheduled successfully!');
+        setSuccessMsg(isRtl ? '✅ تم جدولة الاجتماع بنجاح!' : '✅ Meeting scheduled successfully!');
       }
 
       setIsMeetingModalOpen(false);
@@ -494,7 +490,7 @@ export default function SchedulePage() {
       await fetchMeetings();
       await fetchMySchedule();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to save meeting.');
+      setError(err?.response?.data?.message || (isRtl ? 'فشل حفظ الاجتماع.' : 'Failed to save meeting.'));
     } finally {
       setSubmittingMeeting(false);
     }
@@ -502,14 +498,15 @@ export default function SchedulePage() {
 
   // Delete Meeting
   const handleDeleteMeeting = async (meetingId: string) => {
-    if (!window.confirm('Are you sure you want to cancel and delete this meeting?')) return;
+    const confirmMsg = isRtl ? 'هل أنت تأكد من إلغاء وحذف هذا الاجتماع؟' : 'Are you sure you want to cancel and delete this meeting?';
+    if (!window.confirm(confirmMsg)) return;
     try {
       await scheduleApi.deleteMeeting(meetingId);
-      setSuccessMsg('Meeting cancelled successfully.');
+      setSuccessMsg(isRtl ? 'تم إلغاء الاجتماع بنجاح.' : 'Meeting cancelled successfully.');
       await fetchMeetings();
       await fetchMySchedule();
     } catch (err: any) {
-      setError('Failed to delete meeting.');
+      setError(isRtl ? 'فشل حذف الاجتماع.' : 'Failed to delete meeting.');
     }
   };
 
@@ -542,7 +539,7 @@ export default function SchedulePage() {
     setMeetingStartTime(startDateObj.toTimeString().substring(0, 5));
     setMeetingEndTime(new Date(m.endTime).toTimeString().substring(0, 5));
     setMeetingLocation(m.locationOrLink || '');
-    setSelectedAttendeeIds(m.attendees.map((a) => a.userId));
+    setSelectedAttendeeIds((m.attendees || []).map((a) => a.userId));
     setIsMeetingModalOpen(true);
   };
 
@@ -560,15 +557,15 @@ export default function SchedulePage() {
   const isTodayOffice = todayLocation === 'OFFICE';
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 animate-fadeIn max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-            <span>📅 Company Schedule & Meetings</span>
+            <span>{isRtl ? '📅 جدول العمل والاجتماعات' : '📅 Company Schedule & Meetings'}</span>
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Track required office days, upcoming meetings, and manage hourly staff rosters
+            {isRtl ? 'متابعة أيام العمل في المكتب والاجتماعات وجدول دوام الشركة' : 'Track required office days, upcoming meetings, and manage company office rosters'}
           </p>
         </div>
 
@@ -583,7 +580,7 @@ export default function SchedulePage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              👤 My Schedule
+              {isRtl ? '👤 جدولي' : '👤 My Schedule'}
             </button>
             <button
               onClick={() => setActiveTab('roster')}
@@ -593,7 +590,7 @@ export default function SchedulePage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              🏢 Hourly Office Roster
+              {isRtl ? '🏢 جدول الدوام' : '🏢 Office Roster'}
             </button>
             <button
               onClick={() => setActiveTab('meetings')}
@@ -603,7 +600,7 @@ export default function SchedulePage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              📹 Meetings & Events ({meetings.length})
+              {isRtl ? `📹 الاجتماعات (${meetings.length})` : `📹 Meetings & Events (${meetings.length})`}
             </button>
           </div>
         )}
@@ -644,21 +641,21 @@ export default function SchedulePage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-white/10 text-white border border-white/15">
-                      Today's Requirement
+                      {isRtl ? 'متطلب اليوم' : "Today's Requirement"}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      {new Date().toLocaleDateString(isRtl ? 'ar-JO' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </span>
                   </div>
                   <h2 className="text-2xl font-black text-white mt-1">
-                    {isTodayOffice ? 'Scheduled Office Day (On-site)' : 'Scheduled Home / Remote Day'}
+                    {isTodayOffice ? (isRtl ? 'يوم عمل مقرر في المكتب' : 'Scheduled Office Day (On-site)') : (isRtl ? 'يوم عمل عن بعد من المنزل' : 'Scheduled Home / Remote Day')}
                   </h2>
                   <p className="text-slate-300 text-xs mt-1">
                     {isTodayOffice
-                      ? 'Please make sure to clock in at the Office workspace today.'
+                      ? (isRtl ? 'يرجى التأكد من تسجيل الدخول من مقر الشركة اليوم.' : 'Please make sure to clock in at the Office workspace today.')
                       : (isFixedIncomeUser
-                          ? 'Fixed income employees work at office by default.'
-                          : 'You are working remotely from home today (Default for Hourly staff).')}
+                          ? (isRtl ? 'موظفو الراتب الثابت يعملون من المكتب افتراضياً.' : 'Fixed income employees work at office by default.')
+                          : (isRtl ? 'أنت تعمل عن بعد من المنزل اليوم (افتراضي لموظفي الساعة).' : 'You are working remotely from home today (Default for Hourly staff).'))}
                   </p>
                 </div>
               </div>
@@ -668,7 +665,7 @@ export default function SchedulePage() {
                 to="/dashboard/attendance"
                 className="gradient-btn px-6 py-3.5 text-sm font-extrabold text-white flex items-center justify-center gap-2 shadow-xl whitespace-nowrap self-start md:self-auto hover:scale-105 transition-transform"
               >
-                <span>⏱️ Open Attendance & Clock In</span>
+                <span>{isRtl ? '⏱️ الذهاب لصفحة الحضور وتسجيل الدخول' : '⏱️ Open Attendance & Clock In'}</span>
               </Link>
             </div>
           </div>
@@ -676,14 +673,14 @@ export default function SchedulePage() {
           {/* Weekly Location Roster (7 Days) */}
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📅 Your Scheduled Work Days This Week</span>
+              <span>{isRtl ? '📅 أيام عملك المقررة هذا الأسبوع' : '📅 Your Scheduled Work Days This Week'}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {currentWeekDates.map((d, i) => {
                 const dateStr = formatYmd(d);
                 const isToday = dateStr === formatYmd(new Date());
-                const sched = mySchedule?.weeklyRoster.find((r) => r.date === dateStr);
+                const sched = (mySchedule?.weeklyRoster || []).find((r) => r.date === dateStr);
                 const loc = sched?.workLocation || (isFixedIncomeUser ? 'OFFICE' : 'HOME');
                 const isOffice = loc === 'OFFICE';
 
@@ -698,17 +695,17 @@ export default function SchedulePage() {
                   >
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        {DAYS_OF_WEEK[i].label}
+                        {isRtl ? DAYS_OF_WEEK[i].labelAr : DAYS_OF_WEEK[i].label}
                       </span>
                       {isToday && (
                         <span className="px-2 py-0.5 rounded text-[10px] font-black bg-cyan-400 text-slate-950">
-                          TODAY
+                          {isRtl ? 'اليوم' : 'TODAY'}
                         </span>
                       )}
                     </div>
 
-                    <div className="text-sm font-extrabold text-white">
-                      {d.getDate()} {d.toLocaleDateString('en-US', { month: 'short' })}
+                    <div className="text-sm font-extrabold text-white" dir="ltr">
+                      {d.getDate()} {d.toLocaleDateString(isRtl ? 'ar-JO' : 'en-US', { month: 'short' })}
                     </div>
 
                     <div className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-2 border ${
@@ -716,7 +713,7 @@ export default function SchedulePage() {
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                         : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
                     }`}>
-                      <span>{isOffice ? '🏢 Office' : '🏠 Home'}</span>
+                      <span>{isOffice ? (isRtl ? '🏢 المكتب' : '🏢 Office') : (isRtl ? '🏠 المنزل' : '🏠 Home')}</span>
                     </div>
                   </div>
                 );
@@ -727,14 +724,14 @@ export default function SchedulePage() {
           {/* Invited Meetings & Events Section */}
           <div className="space-y-4 pt-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📹 Your Invited Meetings & Events</span>
+              <span>{isRtl ? '📹 الاجتماعات والفعاليات المدعو إليها' : '📹 Your Invited Meetings & Events'}</span>
             </h3>
 
             {(!mySchedule?.upcomingMeetings || mySchedule.upcomingMeetings.length === 0) ? (
               <div className="glass-card p-8 text-center text-slate-400 space-y-2">
                 <span className="text-4xl block">🎉</span>
-                <p className="text-base font-semibold text-white">No upcoming meetings scheduled!</p>
-                <p className="text-xs text-slate-400">Enjoy your uninterrupted focused work time.</p>
+                <p className="text-base font-semibold text-white">{isRtl ? 'لا توجد اجتماعات قادمة!' : 'No upcoming meetings scheduled!'}</p>
+                <p className="text-xs text-slate-400">{isRtl ? 'استمتع بوقت عملك المركز بدون مقاطعات.' : 'Enjoy your uninterrupted focused work time.'}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -748,23 +745,23 @@ export default function SchedulePage() {
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">
-                            Meeting
+                            {isRtl ? 'اجتماع' : 'Meeting'}
                           </span>
-                          <h4 className="text-base font-bold text-white mt-1">{m.title}</h4>
+                          <h4 className="text-base font-bold text-white mt-1" dir="auto">{m.title}</h4>
                         </div>
-                        <span className="text-xs text-slate-400 font-semibold bg-white/5 px-3 py-1 rounded-lg border border-white/10 whitespace-nowrap">
-                          📅 {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <span className="text-xs text-slate-400 font-semibold bg-white/5 px-3 py-1 rounded-lg border border-white/10 whitespace-nowrap" dir="ltr">
+                          📅 {startDate.toLocaleDateString(isRtl ? 'ar-JO' : 'en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
 
                       {m.description && (
-                        <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3 rounded-xl border border-white/5">
+                        <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3 rounded-xl border border-white/5" dir="auto">
                           "{m.description}"
                         </p>
                       )}
 
                       <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-2 border-t border-white/10">
-                        <div className="text-slate-300 font-semibold flex items-center gap-1.5">
+                        <div className="text-slate-300 font-semibold flex items-center gap-1.5" dir="ltr">
                           <span>⏰</span>
                           <span>
                             {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -779,10 +776,10 @@ export default function SchedulePage() {
                               rel="noreferrer"
                               className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center gap-1 shadow-md transition-colors"
                             >
-                              <span>🔗 Join Video Call</span>
+                              <span>{isRtl ? '🔗 الانضمام للمكالمة' : '🔗 Join Video Call'}</span>
                             </a>
                           ) : (
-                            <span className="px-3 py-1 rounded-lg bg-white/10 text-slate-200 font-semibold">
+                            <span className="px-3 py-1 rounded-lg bg-white/10 text-slate-200 font-semibold" dir="auto">
                               📍 {m.locationOrLink}
                             </span>
                           )
@@ -791,9 +788,9 @@ export default function SchedulePage() {
 
                       {/* Attendees Avatars */}
                       <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Organized by {m.creatorName || 'HR'}</span>
+                        <span>{isRtl ? `بواسطة ${m.creatorName || 'الموارد البشرية'}` : `Organized by ${m.creatorName || 'HR'}`}</span>
                         <div className="flex items-center -space-x-2">
-                          {m.attendees.map((att) => (
+                          {(m.attendees || []).map((att) => (
                             <div
                               key={att.id}
                               title={att.userName || att.userEmail}
@@ -813,7 +810,7 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* TAB 2: HR HOURLY OFFICE ROSTER MANAGER (RESPONSIVE GRID + ROYAL NAVY GLASSY BLOCKS) */}
+      {/* TAB 2: HR HOURLY OFFICE ROSTER MANAGER */}
       {activeTab === 'roster' && isHrOrAdmin && (
         <div className="space-y-6">
           {/* Controls Bar */}
@@ -827,10 +824,10 @@ export default function SchedulePage() {
                 }}
                 className="btn-secondary px-3.5 py-2 text-xs font-bold"
               >
-                ← Previous Week
+                {isRtl ? 'الأسبوع السابق ←' : '← Previous Week'}
               </button>
-              <div className="text-sm font-extrabold text-white bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                Week of {weekStartStr} to {weekEndStr}
+              <div className="text-sm font-extrabold text-white bg-white/5 px-4 py-2 rounded-xl border border-white/10" dir="ltr">
+                {weekStartStr} to {weekEndStr}
               </div>
               <button
                 onClick={() => {
@@ -840,7 +837,7 @@ export default function SchedulePage() {
                 }}
                 className="btn-secondary px-3.5 py-2 text-xs font-bold"
               >
-                Next Week →
+                {isRtl ? '→ الأسبوع التالي' : 'Next Week →'}
               </button>
             </div>
 
@@ -854,7 +851,7 @@ export default function SchedulePage() {
                 {exportingImage ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <span>📸 Export Slack Schedule Image (PNG)</span>
+                  <span>{isRtl ? '📸 تصدير صورة PNG للـ Slack' : '📸 Export Slack Schedule Image (PNG)'}</span>
                 )}
               </button>
 
@@ -866,25 +863,27 @@ export default function SchedulePage() {
                 {savingRoster ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <span>💾 Publish & Save Roster</span>
+                  <span>{isRtl ? '💾 حفظ ونشر الجدول' : '💾 Publish & Save Roster'}</span>
                 )}
               </button>
             </div>
           </div>
 
           <div className="bg-indigo-950/30 border border-indigo-500/20 p-3 rounded-xl text-xs text-indigo-300 flex items-center justify-between">
-            <span>ℹ️ <strong>Note:</strong> Fixed income employees come to office by default. This schedule manager is for assigning <strong>Hourly / Per-Hour employees</strong> coming to the office.</span>
-            <span className="font-bold text-white">{employees.length} Hourly Employees Total</span>
+            <span>ℹ️ {isRtl ? 'إدارة أيام الحضور في المكتب لجميع الموظفين (راتب ثابت وبالمواصفات بالساعة).' : 'Manage office schedule and roster assignments for all employees (Fixed Income & Per-Hour).'}</span>
+            <span className="font-bold text-white">{isRtl ? `إجمالي الموظفين: ${employees.length}` : `${employees.length} Employees Total`}</span>
           </div>
 
-          {/* RESPONSIVE GRID LAYOUT (COMFORTABLE WIDTH ON ALL SCREENS) */}
+          {/* RESPONSIVE GRID LAYOUT */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4" ref={exportTableRef}>
             {currentWeekDates.map((d, idx) => {
               const dateStr = formatYmd(d);
-              const dayLabel = `${DAYS_OF_WEEK[idx].label} ${d.getDate()}/${d.getMonth() + 1}`;
+              const dayLabel = isRtl 
+                ? `${DAYS_OF_WEEK[idx].labelAr} ${d.getDate()}/${d.getMonth() + 1}`
+                : `${DAYS_OF_WEEK[idx].label} ${d.getDate()}/${d.getMonth() + 1}`;
               const isToday = dateStr === formatYmd(new Date());
 
-              // Hourly employees coming to Office on this day
+              // Employees coming to Office on this day
               const officeEmployees = employees.filter(
                 (emp) => rosterMatrix[emp.id]?.[dateStr] === 'OFFICE'
               );
@@ -903,7 +902,7 @@ export default function SchedulePage() {
                     <div className="flex justify-between items-center pb-2.5 border-b border-cyan-500/20">
                       <div>
                         <span className="text-xs font-black text-cyan-400 uppercase tracking-wider block">
-                          {DAYS_OF_WEEK[idx].label}
+                          {isRtl ? DAYS_OF_WEEK[idx].labelAr : DAYS_OF_WEEK[idx].label}
                         </span>
                         <span className="text-base font-extrabold text-white">
                           {d.getDate()}/{d.getMonth() + 1}
@@ -911,24 +910,24 @@ export default function SchedulePage() {
                       </div>
                       {isToday && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-400 text-slate-950 shadow-md">
-                          TODAY
+                          {isRtl ? 'اليوم' : 'TODAY'}
                         </span>
                       )}
                     </div>
 
                     {/* Attendance Count */}
                     <div className="text-xs font-extrabold text-slate-300 flex items-center justify-between">
-                      <span>Hourly Attendees:</span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black">
+                      <span>{isRtl ? 'المتواجدون بالمكتب:' : 'Office Attendees:'}</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-black" dir="ltr">
                         {officeEmployees.length}
                       </span>
                     </div>
 
-                    {/* ROYAL NAVY GLASSY BLOCKS FOR NAMES (WHITE BOLD FONTS) */}
+                    {/* NAMES BLOCKS */}
                     <div className="space-y-2 pt-1 min-h-[140px] max-h-[220px] overflow-y-auto pr-1">
                       {officeEmployees.length === 0 ? (
                         <div className="text-center py-8 text-xs text-slate-400 italic">
-                          No hourly staff scheduled for office
+                          {isRtl ? 'لا يوجد موظفون محددون' : 'No staff scheduled for office'}
                         </div>
                       ) : (
                         officeEmployees.map((emp) => (
@@ -943,7 +942,7 @@ export default function SchedulePage() {
                             <button
                               onClick={() => removeUserFromDayOffice(emp.id, dateStr)}
                               className="text-slate-400 hover:text-red-400 font-black px-1.5 text-sm transition-colors"
-                              title="Remove from Office list"
+                              title={isRtl ? 'إزالة من قائمة المكتب' : 'Remove from Office list'}
                             >
                               ✕
                             </button>
@@ -953,12 +952,12 @@ export default function SchedulePage() {
                     </div>
                   </div>
 
-                  {/* ACTION BUTTON (CYAN/BLUE GRADIENT + WHITE TEXT) */}
+                  {/* ACTION BUTTON */}
                   <button
                     onClick={() => openAssignModalForDay(dateStr, dayLabel)}
                     className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-black shadow-lg flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02]"
                   >
-                    <span>➕ Choose Office Employees</span>
+                    <span>{isRtl ? '➕ اختيار موظفي المكتب' : '➕ Choose Office Employees'}</span>
                   </button>
                 </div>
               );
@@ -967,17 +966,17 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* HR DAY ASSIGNMENT MODAL (HOURLY EMPLOYEES ONLY) */}
+      {/* HR DAY ASSIGNMENT MODAL */}
       {selectedDayForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
           <div className="glass-card border border-cyan-500/30 max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl rounded-2xl bg-[#0a192f]">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-extrabold text-white">
-                  Assign Hourly Staff to Office
+                  {isRtl ? 'تعيين الموظفين للمكتب' : 'Assign Staff to Office'}
                 </h3>
                 <p className="text-xs text-cyan-400 font-semibold mt-0.5">
-                  Selecting for {selectedDayForModal.dayLabel}
+                  {isRtl ? `تحديد ليوم ${selectedDayForModal.dayLabel}` : `Selecting for ${selectedDayForModal.dayLabel}`}
                 </p>
               </div>
               <button
@@ -990,20 +989,20 @@ export default function SchedulePage() {
 
             {/* Search Bar */}
             <div className="relative">
-              <span className="absolute left-3.5 top-3 text-slate-400 text-xs">🔍</span>
+              <span className={`absolute ${isRtl ? 'right-3.5' : 'left-3.5'} top-3 text-slate-400 text-xs`}>🔍</span>
               <input
                 type="text"
                 value={modalSearch}
                 onChange={(e) => setModalSearch(e.target.value)}
-                placeholder="Search hourly employee by name..."
-                className="input-field text-xs pl-9 py-2.5 text-white bg-slate-900 border-cyan-500/30"
+                placeholder={isRtl ? 'بحث باسم الموظف...' : 'Search employee by name...'}
+                className={`input-field text-xs ${isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'} py-2.5 text-white bg-slate-900 border-cyan-500/30`}
               />
             </div>
 
             {/* Quick Actions */}
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-300 font-semibold">
-                Selected: <strong className="text-cyan-400 font-black">{modalSelectedUserIds.length}</strong> hourly employees
+                {isRtl ? `المحدد: ${modalSelectedUserIds.length} موظف` : `Selected: ${modalSelectedUserIds.length} employees`}
               </span>
               <div className="space-x-3">
                 <button
@@ -1011,14 +1010,14 @@ export default function SchedulePage() {
                   onClick={() => setModalSelectedUserIds(employees.map((e) => e.id))}
                   className="text-cyan-400 hover:underline font-bold"
                 >
-                  Select All
+                  {isRtl ? 'تحديد الكل' : 'Select All'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setModalSelectedUserIds([])}
                   className="text-slate-400 hover:underline"
                 >
-                  Clear All
+                  {isRtl ? 'إلغاء الكل' : 'Clear All'}
                 </button>
               </div>
             </div>
@@ -1027,7 +1026,7 @@ export default function SchedulePage() {
             <div className="max-h-60 overflow-y-auto space-y-2 bg-slate-900/90 p-4 rounded-xl border border-cyan-500/20">
               {employees.length === 0 ? (
                 <div className="text-center py-4 text-xs text-slate-400">
-                  No active hourly employees found.
+                  {isRtl ? 'لا يوجد موظفون نشطون.' : 'No active employees found.'}
                 </div>
               ) : (
                 employees
@@ -1064,8 +1063,12 @@ export default function SchedulePage() {
                           />
                           <span className="text-white font-extrabold">{emp.name}</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          Per Hour
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
+                          emp.employeeType === EmployeeType.FIXED
+                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {emp.employeeType === EmployeeType.FIXED ? (isRtl ? 'راتب ثابت' : 'Fixed') : (isRtl ? 'بالساعة' : 'Per Hour')}
                         </span>
                       </label>
                     );
@@ -1080,14 +1083,14 @@ export default function SchedulePage() {
                 onClick={() => setSelectedDayForModal(null)}
                 className="btn-secondary flex-1 py-2.5 text-xs font-bold"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 type="button"
                 onClick={applyModalAssignments}
                 className="gradient-btn flex-1 py-2.5 text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg"
               >
-                <span>Apply to {selectedDayForModal.dayLabel}</span>
+                <span>{isRtl ? `تطبيق ليوم ${selectedDayForModal.dayLabel}` : `Apply to ${selectedDayForModal.dayLabel}`}</span>
               </button>
             </div>
           </div>
@@ -1098,12 +1101,12 @@ export default function SchedulePage() {
       {activeTab === 'meetings' && isHrOrAdmin && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-white">Company Meetings & Scheduled Events</h3>
+            <h3 className="text-lg font-bold text-white">{isRtl ? 'اجتماعات وفعاليات الشركة' : 'Company Meetings & Scheduled Events'}</h3>
             <button
               onClick={openCreateMeetingModal}
               className="gradient-btn px-5 py-2.5 text-xs flex items-center gap-2 shadow-xl"
             >
-              <span>➕ Schedule New Meeting</span>
+              <span>{isRtl ? '➕ جدولة اجتماع جديد' : '➕ Schedule New Meeting'}</span>
             </button>
           </div>
 
@@ -1115,19 +1118,19 @@ export default function SchedulePage() {
               return (
                 <div key={m.id} className="glass-card p-6 space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg">
                   <div className="flex justify-between items-start">
-                    <h4 className="text-base font-bold text-white">{m.title}</h4>
+                    <h4 className="text-base font-bold text-white" dir="auto">{m.title}</h4>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEditMeetingModal(m)}
                         className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10"
-                        title="Edit Meeting"
+                        title={isRtl ? 'تعديل الاجتماع' : 'Edit Meeting'}
                       >
                         ✏️
                       </button>
                       <button
                         onClick={() => handleDeleteMeeting(m.id)}
                         className="p-1.5 text-red-400 hover:text-red-300 rounded-lg hover:bg-red-500/20"
-                        title="Delete Meeting"
+                        title={isRtl ? 'حذف الاجتماع' : 'Delete Meeting'}
                       >
                         🗑️
                       </button>
@@ -1135,21 +1138,21 @@ export default function SchedulePage() {
                   </div>
 
                   {m.description && (
-                    <p className="text-xs text-slate-300 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-slate-300 bg-white/5 p-3 rounded-xl border border-white/5" dir="auto">
                       {m.description}
                     </p>
                   )}
 
                   <div className="space-y-1 text-xs text-slate-400">
-                    <div>📅 Date: <strong className="text-white">{startDate.toLocaleDateString()}</strong></div>
-                    <div>⏰ Time: <strong className="text-white">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></div>
-                    {m.locationOrLink && <div>📍 Location/Link: <strong className="text-indigo-400">{m.locationOrLink}</strong></div>}
+                    <div>{isRtl ? '📅 التاريخ:' : '📅 Date:'} <strong className="text-white" dir="ltr">{startDate.toLocaleDateString(isRtl ? 'ar-JO' : 'en-US')}</strong></div>
+                    <div>{isRtl ? '⏰ الوقت:' : '⏰ Time:'} <strong className="text-white" dir="ltr">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></div>
+                    {m.locationOrLink && <div>{isRtl ? '📍 الموقع/الرابط:' : '📍 Location/Link:'} <strong className="text-indigo-400" dir="auto">{m.locationOrLink}</strong></div>}
                   </div>
 
                   <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-                    <span>{m.attendees.length} Attendee(s)</span>
+                    <span>{isRtl ? `${(m.attendees || []).length} مدعوون` : `${(m.attendees || []).length} Attendee(s)`}</span>
                     <div className="flex -space-x-2">
-                      {m.attendees.map((att) => (
+                      {(m.attendees || []).map((att) => (
                         <div
                           key={att.id}
                           title={att.userName || att.userEmail}
@@ -1173,7 +1176,7 @@ export default function SchedulePage() {
           <div className="glass-card border border-white/20 max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl rounded-2xl bg-slate-900">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold text-white">
-                {editingMeeting ? 'Edit Meeting' : 'Schedule New Meeting'}
+                {editingMeeting ? (isRtl ? 'تعديل الاجتماع' : 'Edit Meeting') : (isRtl ? 'جدولة اجتماع جديد' : 'Schedule New Meeting')}
               </h3>
               <button
                 onClick={() => setIsMeetingModalOpen(false)}
@@ -1186,35 +1189,37 @@ export default function SchedulePage() {
             <form onSubmit={handleMeetingSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Meeting Title *
+                  {isRtl ? 'عنوان الاجتماع *' : 'Meeting Title *'}
                 </label>
                 <input
                   type="text"
                   required
                   value={meetingTitle}
                   onChange={(e) => setMeetingTitle(e.target.value)}
-                  placeholder="e.g. Q3 Sprint Planning"
+                  placeholder={isRtl ? 'مثال: التخطيط الأسبوعي' : 'e.g. Q3 Sprint Planning'}
                   className="input-field"
+                  dir="auto"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Description / Agenda
+                  {isRtl ? 'الوصف / أجندة الاجتماع' : 'Description / Agenda'}
                 </label>
                 <textarea
                   rows={2}
                   value={meetingDesc}
                   onChange={(e) => setMeetingDesc(e.target.value)}
-                  placeholder="Meeting goals and agenda..."
+                  placeholder={isRtl ? 'أهداف الاجتماع والمواضيع...' : 'Meeting goals and agenda...'}
                   className="input-field resize-none"
+                  dir="auto"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    Date *
+                    {isRtl ? 'التاريخ *' : 'Date *'}
                   </label>
                   <input
                     type="date"
@@ -1222,11 +1227,12 @@ export default function SchedulePage() {
                     value={meetingDate}
                     onChange={(e) => setMeetingDate(e.target.value)}
                     className="input-field text-xs"
+                    dir="ltr"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    Start Time *
+                    {isRtl ? 'وقت البداية *' : 'Start Time *'}
                   </label>
                   <input
                     type="time"
@@ -1234,11 +1240,12 @@ export default function SchedulePage() {
                     value={meetingStartTime}
                     onChange={(e) => setMeetingStartTime(e.target.value)}
                     className="input-field text-xs"
+                    dir="ltr"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    End Time *
+                    {isRtl ? 'وقت النهاية *' : 'End Time *'}
                   </label>
                   <input
                     type="time"
@@ -1246,20 +1253,22 @@ export default function SchedulePage() {
                     value={meetingEndTime}
                     onChange={(e) => setMeetingEndTime(e.target.value)}
                     className="input-field text-xs"
+                    dir="ltr"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Location / Video Link
+                  {isRtl ? 'الموقع / رابط الفيدو' : 'Location / Video Link'}
                 </label>
                 <input
                   type="text"
                   value={meetingLocation}
                   onChange={(e) => setMeetingLocation(e.target.value)}
-                  placeholder="e.g. Conference Room A or https://meet.google.com/xyz"
+                  placeholder={isRtl ? 'مثال: قاعة الاجتماعات أ أو رابط Google Meet' : 'e.g. Conference Room A or https://meet.google.com/xyz'}
                   className="input-field"
+                  dir="auto"
                 />
               </div>
 
@@ -1267,7 +1276,7 @@ export default function SchedulePage() {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Invite Attendees ({selectedAttendeeIds.length})
+                    {isRtl ? `دعوة الموظفين (${selectedAttendeeIds.length})` : `Invite Attendees (${selectedAttendeeIds.length})`}
                   </label>
                   <div className="space-x-2 text-[11px]">
                     <button
@@ -1275,36 +1284,46 @@ export default function SchedulePage() {
                       onClick={() => setSelectedAttendeeIds(employees.map((e) => e.id))}
                       className="text-indigo-400 hover:underline"
                     >
-                      Select All
+                      {isRtl ? 'تحديد الكل' : 'Select All'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedAttendeeIds([])}
                       className="text-slate-400 hover:underline"
                     >
-                      Clear
+                      {isRtl ? 'إلغاء' : 'Clear'}
                     </button>
                   </div>
                 </div>
 
-                <div className="max-h-36 overflow-y-auto space-y-1 bg-slate-950 p-3 rounded-xl border border-white/10">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 bg-slate-950 p-3 rounded-xl border border-white/10">
                   {employees.map((emp) => {
                     const isChecked = selectedAttendeeIds.includes(emp.id);
                     return (
-                      <label key={emp.id} className="flex items-center gap-2 text-xs text-slate-300 hover:text-white cursor-pointer py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedAttendeeIds([...selectedAttendeeIds, emp.id]);
-                            } else {
-                              setSelectedAttendeeIds(selectedAttendeeIds.filter((id) => id !== emp.id));
-                            }
-                          }}
-                          className="rounded border-slate-700 bg-slate-900"
-                        />
-                        <span>{emp.name} ({emp.email})</span>
+                      <label key={emp.id} className="flex items-center justify-between text-xs text-slate-300 hover:text-white cursor-pointer py-1 px-2.5 rounded-lg hover:bg-white/5 transition-colors">
+                        <div className="flex items-center gap-2.5 truncate">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedAttendeeIds([...selectedAttendeeIds, emp.id]);
+                              } else {
+                                setSelectedAttendeeIds(selectedAttendeeIds.filter((id) => id !== emp.id));
+                              }
+                            }}
+                            className="rounded border-slate-700 bg-slate-900 w-4 h-4 text-indigo-500 focus:ring-indigo-400"
+                          />
+                          <span className="font-bold text-white truncate">{emp.name}</span>
+                          <span className="text-slate-400 text-[11px] truncate" dir="ltr">({emp.email})</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border shrink-0 ${
+                          emp.employeeType === EmployeeType.FIXED
+                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {emp.employeeType === EmployeeType.FIXED ? (isRtl ? 'راتب ثابت' : 'Fixed') : (isRtl ? 'بالساعة' : 'Per Hour')}
+                        </span>
                       </label>
                     );
                   })}
@@ -1317,7 +1336,7 @@ export default function SchedulePage() {
                   onClick={() => setIsMeetingModalOpen(false)}
                   className="btn-secondary flex-1 py-2.5 text-xs"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1327,7 +1346,7 @@ export default function SchedulePage() {
                   {submittingMeeting ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <span>{editingMeeting ? 'Save Changes' : 'Create Meeting'}</span>
+                    <span>{editingMeeting ? (isRtl ? 'حفظ التغييرات' : 'Save Changes') : (isRtl ? 'إنشاء الاجتماع' : 'Create Meeting')}</span>
                   )}
                 </button>
               </div>

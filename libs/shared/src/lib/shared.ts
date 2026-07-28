@@ -48,6 +48,12 @@ export enum PayrollStatus {
   FINALIZED = 'FINALIZED',
 }
 
+export enum AdvanceStatus {
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
 // ─── Card Point Values ──────────────────────────────────────────────────────
 
 export const CARD_POINT_VALUES: Record<CardType, number> = {
@@ -101,9 +107,12 @@ export interface UserResponseDto {
   vacationDaysLeft: number;
   earlyLeaveMinutesAccumulated: number;
   netCardPoints: number;
+  totalMinutesWorked?: number;
   hourlyWage: number;
   transportationAllowance: number;
   recurringBonus: number;
+  defaultSimulatedHours?: number;
+  maxDailyHours?: number;
   phone?: string | null;
   department?: string | null;
   bio?: string | null;
@@ -131,6 +140,8 @@ export interface UpdateWageDto {
   hourlyWage?: number;
   transportationAllowance?: number;
   recurringBonus?: number;
+  defaultSimulatedHours?: number;
+  maxDailyHours?: number;
   role?: Role;
   department?: string;
 }
@@ -141,6 +152,8 @@ export interface UpdateEmployeeTypeDto {
   hourlyWage?: number;
   transportationAllowance?: number;
   recurringBonus?: number;
+  defaultSimulatedHours?: number;
+  maxDailyHours?: number;
 }
 
 // ─── Attendance DTOs ────────────────────────────────────────────────────────
@@ -261,12 +274,49 @@ export interface DraftPayrollDto {
   transportationDeductions: number;
   wfhDays: number;
   cardPointsReference: number;
+  activeAdvanceDeduction?: number;
+  activeAdvanceId?: string;
+  activeAdvanceNote?: string;
   savedApprovedHours?: number;
   savedBonusAmount?: number;
   savedBonusNotes?: string;
   savedDeductionAmount?: number;
   savedDeductionNotes?: string;
   savedStatus?: PayrollStatus;
+}
+
+// ─── Salary Advance DTOs ───────────────────────────────────────────────────
+
+export interface CreateSalaryAdvanceDto {
+  userId: string;
+  totalAmount: number;
+  monthlyInstallment: number;
+  startMonth: string; // YYYY-MM
+  notes?: string;
+}
+
+export interface UpdateSalaryAdvanceDto {
+  totalAmount?: number;
+  monthlyInstallment?: number;
+  status?: AdvanceStatus;
+  notes?: string;
+}
+
+export interface SalaryAdvanceDto {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  totalAmount: number;
+  monthlyInstallment: number;
+  paidAmount: number;
+  remainingBalance: number;
+  startMonth: string;
+  status: AdvanceStatus;
+  notes?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Audit DTOs ─────────────────────────────────────────────────────────────

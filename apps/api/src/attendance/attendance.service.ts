@@ -183,13 +183,20 @@ export class AttendanceService {
       }
     }
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: { tsUsername: true, maxDailyHours: true },
+    });
+
+    const maxHours = user?.maxDailyHours ?? 12;
+
     let isException = false;
     let exceptionStatus: string | null = null;
     let authorizationName: string | null = null;
 
-    if (totalMinutes > 12 * 60) {
+    if (totalMinutes > maxHours * 60) {
       if (!dto.authorizationName || dto.authorizationName.trim().length === 0) {
-        throw new BadRequestException('NEEDS_AUTHORIZATION: You have crossed 12 hours in a single day. Who gave you authorization?');
+        throw new BadRequestException(`NEEDS_AUTHORIZATION: You have crossed ${maxHours} hours in a single day. Who gave you authorization?`);
       }
       isException = true;
       exceptionStatus = 'PENDING';
@@ -237,10 +244,6 @@ export class AttendanceService {
 
     this.presenceGateway?.broadcastPresenceUpdate();
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: employeeId },
-      select: { tsUsername: true },
-    });
     if (user?.tsUsername) {
       this.trackerService?.syncOfficeStatus(user.tsUsername, false, now);
     }
@@ -248,7 +251,39 @@ export class AttendanceService {
     return this.mapRecord(attendance);
   }
 
+  private async autoCloseStaleSessions(): Promise<void> {
+    const cutoff = new Date(Date.now() - 15 * 60 * 60 * 1000);
+    const staleRecords = await this.prisma.attendance.findMany({
+      where: {
+        status: AttendanceStatus.CLOCKED_IN,
+        clockInTime: { lte: cutoff },
+      },
+    });
+
+    for (const record of staleRecords) {
+      const autoClockOutTime = new Date(record.clockInTime.getTime() + 15 * 60 * 60 * 1000);
+      await this.prisma.attendance.update({
+        where: { id: record.id },
+        data: {
+          clockOutTime: autoClockOutTime,
+          status: AttendanceStatus.CLOCKED_OUT,
+          isException: true,
+          exceptionStatus: 'PENDING',
+          authorizationName: 'AUTO_15H_SYSTEM',
+          clockOutNote: record.clockOutNote
+            ? `${record.clockOutNote}\n[AUTO CLOCK-OUT 15H]: Exceeded 15-hour maximum safety limit.`
+            : '[SYSTEM AUTO CLOCK-OUT]: Shift exceeded 15 hours without clocking out. Flagged for HR review.',
+        },
+      });
+    }
+
+    if (staleRecords.length > 0) {
+      this.presenceGateway?.broadcastPresenceUpdate();
+    }
+  }
+
   async getMyAttendance(employeeId: string, limit = 100): Promise<AttendanceResponseDto[]> {
+    await this.autoCloseStaleSessions();
     const records = await this.prisma.attendance.findMany({
       where: { employeeId },
       include: { employee: { select: { name: true, email: true } } },
@@ -260,6 +295,7 @@ export class AttendanceService {
   }
 
   async getByEmployee(employeeId: string, limit = 100): Promise<AttendanceResponseDto[]> {
+    await this.autoCloseStaleSessions();
     const records = await this.prisma.attendance.findMany({
       where: { employeeId },
       include: { employee: { select: { name: true, email: true } } },
@@ -323,6 +359,7 @@ export class AttendanceService {
   }
 
   async getAllExceptions(status?: string): Promise<AttendanceResponseDto[]> {
+    await this.autoCloseStaleSessions();
     const where: any = { isException: true };
     if (status && status !== 'ALL') {
       where.exceptionStatus = status;

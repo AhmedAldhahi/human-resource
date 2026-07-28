@@ -1,8 +1,10 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const REMEMBER_ME_KEY = 'hrms_remember_me';
 const REMEMBER_EMAIL_KEY = 'hrms_remember_email';
@@ -10,6 +12,7 @@ const REMEMBER_PASSWORD_KEY = 'hrms_remember_password';
 
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
+  const { t, isRtl } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -60,9 +63,9 @@ export default function LoginPage() {
       if (err?.response?.data?.message) {
         setError(err.response.data.message);
       } else if (!err?.response) {
-        setError('Cannot connect to backend API server. Please ensure the backend server is running.');
+        setError('Cannot connect to backend API server.');
       } else {
-        setError('Invalid email or password. Please try again.');
+        setError(t('invalid_credentials'));
       }
     } finally {
       setSubmitting(false);
@@ -71,8 +74,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden transition-colors duration-300">
-      {/* Top right Theme Switcher */}
-      <div className="absolute top-6 right-6 z-20">
+      {/* Top right Theme & Language Switchers */}
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
+        <LanguageSwitcher compact />
         <ThemeSwitcher compact />
       </div>
       {/* Dynamic Background theme glow effects */}
@@ -93,10 +97,10 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-extrabold tracking-tight gradient-text">
-              HRMS
+              {t('brand_title')}
             </h1>
             <p className="text-theme-secondary text-sm">
-              Sign in to your account to continue
+              {t('login_subtitle')}
             </p>
           </div>
 
@@ -117,7 +121,7 @@ export default function LoginPage() {
                 htmlFor="email"
                 className="block text-xs font-semibold text-theme-secondary uppercase tracking-wider"
               >
-                Email Address
+                {t('email_address')}
               </label>
               <input
                 id="email"
@@ -136,7 +140,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-xs font-semibold text-theme-secondary uppercase tracking-wider"
               >
-                Password
+                {t('password')}
               </label>
               <div className="relative">
                 <input
@@ -145,14 +149,16 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pr-10"
+                  className={`input-field ${isRtl ? 'pl-10' : 'pr-10'}`}
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-primary transition-colors"
+                  className={`absolute top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-primary transition-colors ${
+                    isRtl ? 'left-3' : 'right-3'
+                  }`}
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -193,10 +199,10 @@ export default function LoginPage() {
               {submitting ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Signing in…
+                  {t('signing_in')}
                 </>
               ) : (
-                'Sign In'
+                t('sign_in')
               )}
             </button>
           </form>

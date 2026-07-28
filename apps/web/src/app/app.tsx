@@ -20,117 +20,120 @@ const ChatPage = React.lazy(() => import('../pages/ChatPage'));
 const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagementPage'));
 const AuditLogPage = React.lazy(() => import('../pages/AuditLogPage'));
 const SchedulePage = React.lazy(() => import('../pages/SchedulePage'));
+const InstructionsPage = React.lazy(() => import('../pages/InstructionsPage'));
 
 import { PageSkeleton } from '../components/SkeletonLoader';
 import { Role } from '@hrms/shared';
 import { ChatProvider } from '../context/ChatContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import { LanguageProvider } from '../context/LanguageContext';
 
 export function App() {
   return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <ChatProvider>
-            <React.Suspense fallback={<PageSkeleton />}>
-            <Routes>
-          {/* Public */}
-          <Route path="/" element={<LoginPage />} />
+    <LanguageProvider>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <ChatProvider>
+              <React.Suspense fallback={<PageSkeleton />}>
+                <Routes>
+                  {/* Public */}
+                  <Route path="/" element={<LoginPage />} />
 
-          {/* Protected Dashboard */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardHome />} />
-            <Route path="presence" element={<PresencePage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="attendance" element={<AttendancePage />} />
-            <Route path="schedule" element={<SchedulePage />} />
-            <Route path="absence" element={<AbsencePage />} />
-            <Route path="my-cards" element={<MyCardsPage />} />
-            <Route path="chat" element={<ChatPage />} />
+                  {/* Protected Dashboard */}
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<DashboardHome />} />
+                    <Route path="instructions" element={<InstructionsPage />} />
+                    <Route path="presence" element={<PresencePage />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                    <Route path="attendance" element={<AttendancePage />} />
+                    <Route path="schedule" element={<SchedulePage />} />
+                    <Route path="absence" element={<AbsencePage />} />
+                    <Route path="my-cards" element={<MyCardsPage />} />
+                    <Route path="chat" element={<ChatPage />} />
 
-            {/* HR & ADMIN only */}
-            <Route
-              path="employees"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <EmployeesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="reports"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <ReportsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="payroll"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <PayrollManagementPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="pc-tracker"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <TrackerPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="issue-card"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <IssueCardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="all-cards"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <AllCardsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="create-user"
-              element={
-                <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
-                  <CreateUserPage />
-                </ProtectedRoute>
-              }
-            />
-            {/* ADMIN only */}
-            <Route
-              path="audit"
-              element={
-                <ProtectedRoute allowedRoles={[Role.ADMIN]}>
-                  <AuditLogPage />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
-          </Routes>
-          </React.Suspense>
-        </ChatProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </ThemeProvider>
-);
+                    {/* HR & ADMIN only */}
+                    <Route
+                      path="employees"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <EmployeesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="reports"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <ReportsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="payroll"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <PayrollManagementPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="pc-tracker"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <TrackerPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="issue-card"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <IssueCardPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="all-cards"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <AllCardsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="create-user"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.HR, Role.ADMIN]}>
+                          <CreateUserPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    {/* ADMIN only */}
+                    <Route
+                      path="audit"
+                      element={
+                        <ProtectedRoute allowedRoles={[Role.ADMIN]}>
+                          <AuditLogPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Route>
+                </Routes>
+              </React.Suspense>
+            </ChatProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+    </LanguageProvider>
+  );
 }
 
 export default App;
-
-

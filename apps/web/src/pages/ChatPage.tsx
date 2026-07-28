@@ -2,10 +2,12 @@ import { getAssetUrl, getSocketUrl } from '../api/client';
 import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import NewConversationModal from '../components/chat/NewConversationModal';
 
 const ChatPage = () => {
   const { user } = useAuth();
+  const { t, isRtl } = useLanguage();
   const {
     conversations,
     activeConversation,
@@ -57,15 +59,17 @@ const ChatPage = () => {
   const isPartnerTyping = activeConversation && typingUsers[activeConversation]?.length > 0;
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[500px] bg-white/50 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/20 relative">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[500px] bg-white/50 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/20 relative animate-fadeIn">
       {/* Sidebar - hidden on mobile when active conversation is open */}
-      <div className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 border-r border-gray-200/50 flex-col bg-gray-50/50 h-full`}>
+      <div className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 ${isRtl ? 'border-l' : 'border-r'} border-gray-200/50 flex-col bg-gray-50/50 h-full`}>
         <div className="p-4 border-b border-gray-200/50 flex justify-between items-center bg-white/40">
-          <h2 className="text-xl font-bold text-gray-800">Messages</h2>
+          <h2 className="text-xl font-bold text-gray-800">
+            {isRtl ? 'المحادثات' : 'Messages'}
+          </h2>
           <button
             onClick={() => setIsModalOpen(true)}
             className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors shadow-md"
-            aria-label="New Conversation"
+            title={isRtl ? 'محادثة جديدة' : 'New Conversation'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -75,7 +79,9 @@ const ChatPage = () => {
         
         <div className="flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">No conversations yet.</div>
+            <div className="p-6 text-center text-gray-500">
+              {isRtl ? 'لا توجد محادثات سابقة' : 'No conversations yet.'}
+            </div>
           ) : (
             conversations.map((conv) => (
               <div
@@ -99,15 +105,15 @@ const ChatPage = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline">
-                    <h3 className="font-semibold text-gray-800 truncate">{conv.title || 'User'}</h3>
+                    <h3 className="font-semibold text-gray-800 truncate">{conv.title || (isRtl ? 'مستخدم' : 'User')}</h3>
                     {conv.lastMessage && (
-                      <span className="text-xs text-gray-400 flex-shrink-0 ml-1">
+                      <span className="text-xs text-gray-400 flex-shrink-0 ml-1" dir="ltr">
                         {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
-                  <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
-                    {conv.lastMessage?.content || 'Started a conversation'}
+                  <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-semibold text-gray-800' : 'text-gray-500'}`} dir="auto">
+                    {conv.lastMessage?.content || (isRtl ? 'بدأ محادثة' : 'Started a conversation')}
                   </p>
                 </div>
                 {conv.unreadCount > 0 && (
@@ -133,7 +139,7 @@ const ChatPage = () => {
                 className="md:hidden p-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 transition-colors"
                 aria-label="Back to conversations"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-6 h-6 ${isRtl ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -146,8 +152,8 @@ const ChatPage = () => {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-gray-800 truncate">{activeConvDetails?.title || 'User'}</h3>
-                {isPartnerTyping && <p className="text-xs text-blue-500 font-medium animate-pulse">Typing...</p>}
+                <h3 className="font-semibold text-gray-800 truncate">{activeConvDetails?.title || (isRtl ? 'مستخدم' : 'User')}</h3>
+                {isPartnerTyping && <p className="text-xs text-blue-500 font-medium animate-pulse">{isRtl ? 'جاري الكتابة...' : 'Typing...'}</p>}
               </div>
             </div>
 
@@ -178,8 +184,8 @@ const ChatPage = () => {
                           : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
                       }`}
                     >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                      <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" dir="auto">{msg.content}</p>
+                      <p className={`text-[10px] mt-1 ${isRtl ? 'text-left' : 'text-right'} ${isMe ? 'text-blue-100' : 'text-gray-400'}`} dir="ltr">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -196,16 +202,17 @@ const ChatPage = () => {
                   type="text"
                   value={newMessage}
                   onChange={handleTyping}
-                  placeholder="Type a message..."
-                  className="flex-1 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-inner bg-white/80 text-sm"
+                  placeholder={t('chat_type_message')}
+                  className="flex-1 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-inner bg-white/80 text-sm text-gray-900"
+                  dir="auto"
                 />
                 <button
                   type="submit"
                   disabled={!newMessage.trim()}
                   className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-full px-4 sm:px-6 py-2.5 sm:py-2 transition-all font-medium shadow-md flex items-center gap-1.5 text-sm flex-shrink-0"
                 >
-                  <span className="hidden sm:inline">Send</span>
-                  <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">{t('chat_send')}</span>
+                  <svg className={`w-4 h-4 transform ${isRtl ? '-rotate-90' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
                 </button>
@@ -219,7 +226,9 @@ const ChatPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <p className="text-base sm:text-lg font-medium text-gray-500">Select a conversation to start chatting</p>
+            <p className="text-base sm:text-lg font-medium text-gray-500">
+              {isRtl ? 'اختر محادثة لبدء الدردشة' : 'Select a conversation to start chatting'}
+            </p>
           </div>
         )}
       </div>

@@ -34,6 +34,10 @@ import type {
   MeetingDto,
   CreateMeetingDto,
   MyScheduleSummaryDto,
+  CreateSalaryAdvanceDto,
+  SalaryAdvanceDto,
+  UpdateSalaryAdvanceDto,
+  AdvanceStatus,
 } from '@hrms/shared';
 
 const getBaseUrl = () => {
@@ -414,6 +418,37 @@ export const scheduleApi = {
 
   deleteMeeting: async (id: string): Promise<{ success: boolean }> => {
     const { data } = await apiClient.delete<{ success: boolean }>(`/schedule/meetings/${id}`);
+    return data;
+  },
+};
+
+// ── Salary Advances ─────────────────────────────────────────────────────────
+export const salaryAdvanceApi = {
+  create: async (dto: CreateSalaryAdvanceDto): Promise<SalaryAdvanceDto> => {
+    const { data } = await apiClient.post<SalaryAdvanceDto>('/salary-advances', dto);
+    return data;
+  },
+
+  getAll: async (userId?: string, status?: AdvanceStatus): Promise<SalaryAdvanceDto[]> => {
+    const params: any = {};
+    if (userId) params.userId = userId;
+    if (status) params.status = status;
+    const { data } = await apiClient.get<SalaryAdvanceDto[]>('/salary-advances', { params });
+    return data;
+  },
+
+  getById: async (id: string): Promise<SalaryAdvanceDto> => {
+    const { data } = await apiClient.get<SalaryAdvanceDto>(`/salary-advances/${id}`);
+    return data;
+  },
+
+  update: async (id: string, dto: UpdateSalaryAdvanceDto): Promise<SalaryAdvanceDto> => {
+    const { data } = await apiClient.patch<SalaryAdvanceDto>(`/salary-advances/${id}`, dto);
+    return data;
+  },
+
+  cancel: async (id: string): Promise<SalaryAdvanceDto> => {
+    const { data } = await apiClient.patch<SalaryAdvanceDto>(`/salary-advances/${id}/cancel`);
     return data;
   },
 };
