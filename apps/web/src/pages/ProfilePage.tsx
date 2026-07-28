@@ -42,14 +42,14 @@ export default function ProfilePage() {
     setLoading(true);
     setError('');
     try {
-      const [userData, attendanceData, advancesData] = await Promise.all([
-        usersApi.getMe(),
+      const userData = await usersApi.getMe();
+      const [attendanceData, advancesData] = await Promise.all([
         attendanceApi.getMyAttendance(),
-        salaryAdvanceApi.getAll(),
+        salaryAdvanceApi.getAll(userData.id),
       ]);
       setUser(userData);
       setAttendance(attendanceData);
-      setMyAdvances(advancesData);
+      setMyAdvances(advancesData.filter((a) => a.userId === userData.id));
       setSimulatedHours(userData.defaultSimulatedHours ?? 208);
       setContactForm({
         phone: userData.phone || '',
