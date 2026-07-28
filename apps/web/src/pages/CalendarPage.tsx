@@ -66,12 +66,33 @@ export default function CalendarPage() {
     e.preventDefault();
     let cleanedUrl = googleInputUrl.trim();
     
-    // Auto-convert standard Google Calendar sharing link to Embed URL if needed
-    if (cleanedUrl && !cleanedUrl.includes('embed?')) {
-      if (cleanedUrl.includes('calendar.google.com')) {
-        const match = cleanedUrl.match(/src=([^&]+)/);
-        if (match) {
-          cleanedUrl = `https://calendar.google.com/calendar/embed?src=${match[1]}&ctz=Asia%2FAmman`;
+    // Intelligently parse any Google Calendar link, CID, or email address
+    if (cleanedUrl) {
+      if (!cleanedUrl.startsWith('http://') && !cleanedUrl.startsWith('https://')) {
+        // User entered an email or raw calendar ID (e.g., example@gmail.com)
+        const encodedSrc = encodeURIComponent(cleanedUrl);
+        cleanedUrl = `https://calendar.google.com/calendar/embed?src=${encodedSrc}&ctz=Asia%2FAmman`;
+      } else if (cleanedUrl.includes('cid=')) {
+        // Link contains cid parameter (e.g., https://calendar.google.com/calendar/u/0?cid=YWhtZWQu...)
+        const cidMatch = cleanedUrl.match(/cid=([^&]+)/);
+        if (cidMatch) {
+          let rawCid = cidMatch[1];
+          try {
+            if (!rawCid.includes('@')) {
+              const decoded = atob(rawCid);
+              if (decoded && (decoded.includes('@') || decoded.includes('.'))) {
+                rawCid = decoded;
+              }
+            }
+          } catch (e) {
+            // fallback
+          }
+          cleanedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(rawCid)}&ctz=Asia%2FAmman`;
+        }
+      } else if (cleanedUrl.includes('src=')) {
+        const srcMatch = cleanedUrl.match(/src=([^&]+)/);
+        if (srcMatch && !cleanedUrl.includes('embed?')) {
+          cleanedUrl = `https://calendar.google.com/calendar/embed?src=${srcMatch[1]}&ctz=Asia%2FAmman`;
         }
       }
     }

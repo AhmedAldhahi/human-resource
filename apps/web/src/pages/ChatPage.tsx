@@ -220,15 +220,59 @@ const ChatPage = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4 p-4 text-center">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center shadow-inner">
-              <svg className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none relative overflow-hidden bg-slate-950/70">
+            {/* Ambient Background Lights */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* COOL WOODEN PLANK BOARD WITH NAILS & X-MARK */}
+            <div className="relative max-w-lg w-full p-8 sm:p-10 rounded-2xl shadow-2xl border-4 border-amber-900/80 bg-gradient-to-b from-amber-900/90 via-amber-950 to-stone-950 space-y-6 text-amber-100 transform hover:scale-[1.01] transition-transform">
+              
+              {/* Four Corner Metallic Nails */}
+              <div className="absolute top-3 left-3 w-4 h-4 rounded-full bg-gradient-to-br from-slate-300 via-slate-500 to-slate-800 border border-slate-900 shadow-md flex items-center justify-center">
+                <div className="w-1.5 h-0.5 bg-slate-900 rotate-45" />
+              </div>
+              <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-gradient-to-br from-slate-300 via-slate-500 to-slate-800 border border-slate-900 shadow-md flex items-center justify-center">
+                <div className="w-1.5 h-0.5 bg-slate-900 -rotate-45" />
+              </div>
+              <div className="absolute bottom-3 left-3 w-4 h-4 rounded-full bg-gradient-to-br from-slate-300 via-slate-500 to-slate-800 border border-slate-900 shadow-md flex items-center justify-center">
+                <div className="w-1.5 h-0.5 bg-slate-900 -rotate-45" />
+              </div>
+              <div className="absolute bottom-3 right-3 w-4 h-4 rounded-full bg-gradient-to-br from-slate-300 via-slate-500 to-slate-800 border border-slate-900 shadow-md flex items-center justify-center">
+                <div className="w-1.5 h-0.5 bg-slate-900 rotate-45" />
+              </div>
+
+              {/* Wooden X-Mark Crossbars Background Effect */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl opacity-15">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-12 bg-amber-800 border-t-2 border-b-2 border-amber-600 rotate-45" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-12 bg-amber-800 border-t-2 border-b-2 border-amber-600 -rotate-45" />
+              </div>
+
+              {/* Yellow/Black Caution Stripes Top & Bottom Bar */}
+              <div className="h-3 w-full bg-[repeating-linear-gradient(45deg,#eab308,#eab308_15px,#000_15px,#000_30px)] rounded-md border border-amber-600/50 shadow-inner" />
+
+              {/* Board Header Icon */}
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-900/60 border-2 border-amber-600/60 flex items-center justify-center text-3xl shadow-xl text-amber-300 animate-pulse">
+                🚧
+              </div>
+
+              {/* Wooden Board Typography */}
+              <div className="space-y-2 relative z-10">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-300 tracking-wider uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                  UNDER CONSTRUCTION
+                </h2>
+                <h3 className="text-lg font-bold text-amber-200 drop-shadow-md">
+                  {isRtl ? 'قيد الإنشاء والتطوير 🛠️' : 'Under Active Development 🛠️'}
+                </h3>
+                <p className="text-xs text-amber-200/80 max-w-sm mx-auto leading-relaxed pt-2">
+                  {isRtl
+                    ? 'نعتذر، ميزة المحادثات والدردشة المباشرة قيد الصيانة والتطوير الفني ولن تكون متاحة حالياً حتى الانتهاء من التحديثات.'
+                    : 'The real-time messaging platform is currently under active construction and technical refinement.'}
+                </p>
+              </div>
+
+              {/* Yellow/Black Caution Stripes Bottom Bar */}
+              <div className="h-3 w-full bg-[repeating-linear-gradient(45deg,#eab308,#eab308_15px,#000_15px,#000_30px)] rounded-md border border-amber-600/50 shadow-inner" />
             </div>
-            <p className="text-base sm:text-lg font-medium text-gray-500">
-              {isRtl ? 'اختر محادثة لبدء الدردشة' : 'Select a conversation to start chatting'}
-            </p>
           </div>
         )}
       </div>
