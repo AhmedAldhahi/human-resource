@@ -131,7 +131,7 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
   /* Build nav items based on role */
   const navItems: NavItem[] = [
     { label: t('nav_dashboard'), to: '/dashboard', icon: icons.home },
-    { label: t('nav_instructions'), to: '/dashboard/instructions', icon: icons.book },
+    { label: t('nav_calendar') || (t('isRtl') ? 'التقويم و Google' : 'Calendar & Google'), to: '/dashboard/calendar', icon: icons.calendar },
     { label: t('nav_presence'), to: '/dashboard/presence', icon: icons.radar },
     { label: t('nav_messages'), to: '/dashboard/chat', icon: icons.chat, badge: unreadTotal },
     { label: t('nav_profile'), to: '/dashboard/profile', icon: icons.profile },
@@ -162,6 +162,9 @@ export default function Sidebar({ onNavItemClick }: SidebarProps) {
   if (user.role === Role.ADMIN) {
     navItems.push({ label: t('nav_audit'), to: '/dashboard/audit', icon: icons.clipboard });
   }
+
+  // Always put Instructions Manual as the VERY LAST tab at the bottom
+  navItems.push({ label: t('nav_instructions'), to: '/dashboard/instructions', icon: icons.book });
 
   return (
     <aside className="glass-sidebar w-64 h-full flex flex-col justify-between py-6 px-4 overflow-y-auto">

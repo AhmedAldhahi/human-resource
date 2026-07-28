@@ -21,6 +21,7 @@ const PayrollManagementPage = React.lazy(() => import('../pages/PayrollManagemen
 const AuditLogPage = React.lazy(() => import('../pages/AuditLogPage'));
 const SchedulePage = React.lazy(() => import('../pages/SchedulePage'));
 const InstructionsPage = React.lazy(() => import('../pages/InstructionsPage'));
+const CalendarPage = React.lazy(() => import('../pages/CalendarPage'));
 
 import { PageSkeleton } from '../components/SkeletonLoader';
 import { Role } from '@hrms/shared';
@@ -51,6 +52,7 @@ export function App() {
                   >
                     <Route index element={<DashboardHome />} />
                     <Route path="instructions" element={<InstructionsPage />} />
+                    <Route path="calendar" element={<CalendarPage />} />
                     <Route path="presence" element={<PresencePage />} />
                     <Route path="profile" element={<ProfilePage />} />
                     <Route path="attendance" element={<AttendancePage />} />
