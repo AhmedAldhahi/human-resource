@@ -237,7 +237,9 @@ export default function EmployeeHoursModal({
         return;
       }
 
-      const combinedClockIn = new Date(`${editForm.clockInDate}T${editForm.clockInTime}:00`);
+      // Ensure HH:mm or HH:mm:ss format
+      const cleanInTime = editForm.clockInTime.trim().length === 5 ? `${editForm.clockInTime.trim()}:00` : editForm.clockInTime.trim();
+      const combinedClockIn = new Date(`${editForm.clockInDate}T${cleanInTime}`);
       if (isNaN(combinedClockIn.getTime())) {
         setError(isRtl ? 'صيغة تاريخ أو وقت الدخول غير صحيحة.' : 'Invalid clock-in date or time format.');
         setSaveLoading(false);
@@ -251,7 +253,8 @@ export default function EmployeeHoursModal({
           setSaveLoading(false);
           return;
         }
-        const outDateObj = new Date(`${editForm.clockOutDate}T${editForm.clockOutTime}:00`);
+        const cleanOutTime = editForm.clockOutTime.trim().length === 5 ? `${editForm.clockOutTime.trim()}:00` : editForm.clockOutTime.trim();
+        const outDateObj = new Date(`${editForm.clockOutDate}T${cleanOutTime}`);
         if (isNaN(outDateObj.getTime())) {
           setError(isRtl ? 'صيغة تاريخ أو وقت الخروج غير صحيحة.' : 'Invalid clock-out date or time format.');
           setSaveLoading(false);
@@ -280,7 +283,9 @@ export default function EmployeeHoursModal({
       setEditForm(null);
       await fetchAttendance();
     } catch (err: any) {
-      setError(err?.response?.data?.message || (isRtl ? 'فشل تحديث سجل الحضور.' : 'Failed to update attendance record.'));
+      const serverMsg = err?.response?.data?.message;
+      const parsedMsg = Array.isArray(serverMsg) ? serverMsg.join(', ') : serverMsg;
+      setError(parsedMsg || err?.message || (isRtl ? 'فشل تحديث سجل الحضور.' : 'Failed to update attendance record.'));
     } finally {
       setSaveLoading(false);
     }
