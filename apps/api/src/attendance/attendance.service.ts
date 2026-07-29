@@ -347,6 +347,7 @@ export class AttendanceService {
     const updated = await this.prisma.attendance.update({
       where: { id },
       data,
+      include: { employee: { select: { name: true, email: true } } },
     });
 
     this.presenceGateway?.broadcastPresenceUpdate();
