@@ -107,7 +107,7 @@ export default function LoginPage() {
               <h2 className="text-lg sm:text-xl font-black text-white" dir="rtl">
                 عود نخابركم من يرجع البرنامج 📞
               </h2>
-              <p className="text-xs text-amber-200/80 leading-relaxed" dir="rtl">
+              <p className="text-xs sm:text-sm font-black text-amber-200 leading-relaxed" dir="rtl">
                 تم تعليق وتسجيل الخروج من كافة الحسابات مؤقتاً. الاعتماد حالياً على مستندات Google Sheets.
               </p>
             </div>
