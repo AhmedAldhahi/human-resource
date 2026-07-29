@@ -189,11 +189,29 @@ export const attendanceApi = {
     return data;
   },
 
+  updateRecord: async (id: string, dto: UpdateAttendanceDto): Promise<AttendanceResponseDto> => {
+    const { data } = await apiClient.patch<AttendanceResponseDto>(
+      `/attendance/${id}`,
+      dto
+    );
+    return data;
+  },
+
   update: async (id: string, dto: UpdateAttendanceDto): Promise<AttendanceResponseDto> => {
     const { data } = await apiClient.patch<AttendanceResponseDto>(
       `/attendance/${id}`,
       dto
     );
+    return data;
+  },
+
+  deleteRecord: async (id: string): Promise<{ success: boolean }> => {
+    const { data } = await apiClient.delete<{ success: boolean }>(`/attendance/${id}`);
+    return data;
+  },
+
+  delete: async (id: string): Promise<{ success: boolean }> => {
+    const { data } = await apiClient.delete<{ success: boolean }>(`/attendance/${id}`);
     return data;
   },
 

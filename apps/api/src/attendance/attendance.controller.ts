@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Patch,
+  Delete,
   Get,
   Body,
   Param,
@@ -126,6 +127,23 @@ export class AttendanceController {
       record.id,
     );
     return record;
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HR)
+  async deleteAttendance(
+    @Param('id') id: string,
+    @Request() req: { user: { userId: string } },
+  ): Promise<{ success: boolean }> {
+    await this.attendanceService.deleteAttendance(id);
+    await this.auditService.logAction(
+      req.user.userId,
+      'DELETE_ATTENDANCE',
+      `Deleted attendance record`,
+      id,
+    );
+    return { success: true };
   }
 }
 

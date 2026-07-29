@@ -383,4 +383,11 @@ export class AttendanceService {
     });
     return this.mapRecord(updated);
   }
+
+  async deleteAttendance(id: string): Promise<void> {
+    const record = await this.prisma.attendance.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Record not found');
+    await this.prisma.attendance.delete({ where: { id } });
+    this.presenceGateway?.broadcastPresenceUpdate();
+  }
 }
