@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginResponseDto, UserResponseDto, EmployeeType, CARD_POINT_VALUES } from '@hrms/shared';
+import { LoginResponseDto, UserResponseDto, Role, EmployeeType, CARD_POINT_VALUES } from '@hrms/shared';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +23,11 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // STRICT LOCKDOWN: ONLY ADMIN IS ALLOWED TO LOG IN
+    if (user.role !== Role.ADMIN) {
+      throw new UnauthorizedException('return to the google sheets\nعود نخابركم من يرجع البرنامج');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -73,6 +78,10 @@ export class AuthService {
   }
 
   async login(user: UserResponseDto): Promise<LoginResponseDto> {
+    if (user.role !== Role.ADMIN) {
+      throw new UnauthorizedException('return to the google sheets\nعود نخابركم من يرجع البرنامج');
+    }
+
     const payload = {
       sub: user.id,
       email: user.email,

@@ -6,7 +6,7 @@ import React, {
   useCallback,
   type ReactNode,
 } from 'react';
-import type { UserResponseDto } from '@hrms/shared';
+import { UserResponseDto, Role } from '@hrms/shared';
 import { authApi, usersApi } from '../api/client';
 
 interface AuthContextType {
@@ -25,27 +25,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount, check localStorage for existing session
+  // On mount, check stored session — ONLY allow ADMIN
   useEffect(() => {
     const init = async () => {
       const storedToken = localStorage.getItem('hrms_token');
-      const storedUser = localStorage.getItem('hrms_user');
 
       if (storedToken) {
         setToken(storedToken);
         try {
           const freshUser = await usersApi.getMe();
-          setUser(freshUser);
-          localStorage.setItem('hrms_user', JSON.stringify(freshUser));
+          if (freshUser.role !== Role.ADMIN) {
+            // Non-admin session: kick out immediately
+            localStorage.removeItem('hrms_token');
+            localStorage.removeItem('hrms_user');
+            setToken(null);
+            setUser(null);
+          } else {
+            setUser(freshUser);
+            localStorage.setItem('hrms_user', JSON.stringify(freshUser));
+          }
         } catch {
-          // Token invalid — clear everything
           localStorage.removeItem('hrms_token');
           localStorage.removeItem('hrms_user');
           setToken(null);
           setUser(null);
         }
-      } else if (storedUser) {
-        // Edge case cleanup
+      } else {
         localStorage.removeItem('hrms_user');
       }
 
@@ -57,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
+    if (response.user.role !== Role.ADMIN) {
+      throw new Error('return to the google sheets\nعود نخابركم من يرجع البرنامج');
+    }
     localStorage.setItem('hrms_token', response.accessToken);
     localStorage.setItem('hrms_user', JSON.stringify(response.user));
     setToken(response.accessToken);
@@ -77,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         login,
         logout,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!token && !!user && user.role === Role.ADMIN,
         loading,
       }}
     >
@@ -93,5 +101,3 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-
-export default AuthContext;
